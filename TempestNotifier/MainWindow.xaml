@@ -6,17 +6,29 @@
         xmlns:local="clr-namespace:TempestNotifier"
         x:Class="TempestNotifier.MainWindow"
         mc:Ignorable="d"
-        Title="MainWindow" Height="324" Width="525" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        Title="MainWindow" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
     <Grid>
         <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,260,0,0" VerticalAlignment="Top" Width="93" Click="button_Click_1" Height="27"/>
-        <ListView x:Name="listview_maps" HorizontalAlignment="Left" Height="175" Margin="10,45,0,0" VerticalAlignment="Top" Width="497" FontSize="16">
+        <ListView x:Name="listview_maps" Height="175" Margin="10,45,10,0" FontSize="16" VerticalAlignment="Top">
+            <ListView.Resources>
+                <Style TargetType="{x:Type ListViewItem}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding good}" Value="false">
+                            <Setter Property="Background" Value="#66FF0000" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding good}" Value="true">
+                            <Setter Property="Background" Value="#6600FF00" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.Resources>
             <ListView.DataContext>
                 <local:Map/>
             </ListView.DataContext>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name}" Width="120"/>
-                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest.name}" Width="auto"/>
+                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name}" Width="200"/>
+                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest}" Width="400"/>
                 </GridView>
             </ListView.View>
         </ListView>
