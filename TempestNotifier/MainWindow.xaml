@@ -6,23 +6,37 @@
         xmlns:local="clr-namespace:TempestNotifier"
         x:Class="TempestNotifier.MainWindow"
         mc:Ignorable="d"
-        Title="Tempest Notifier v0.2-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        xmlns:util="clr-namespace:Wpf.Util"
+        Title="Tempest Notifier v0.3-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
     <Grid Margin="0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="11*"/>
             <ColumnDefinition Width="79*"/>
         </Grid.ColumnDefinitions>
         <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="93" Click="button_Click_1" Height="27" VerticalAlignment="Bottom" Grid.ColumnSpan="2"/>
-        <Label x:Name="lbl_last_update" Content="Last update:" Margin="31,0,10,0" FontSize="16" VerticalAlignment="Bottom" Height="37" Grid.Column="1"/>
+        <Label x:Name="lbl_last_update" Margin="31,0,10,0" FontSize="16" VerticalAlignment="Bottom" Height="37" Grid.Column="1"/>
         <ListView x:Name="listview_maps" Margin="10,10,10,48" FontSize="16" Grid.ColumnSpan="2">
             <ListView.Resources>
                 <Style TargetType="{x:Type ListViewItem}">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding good}" Value="false">
+                        <DataTrigger Binding="{Binding state}" Value="-1">
                             <Setter Property="Background" Value="#66FF0000" />
                         </DataTrigger>
-                        <DataTrigger Binding="{Binding good}" Value="true">
+                        <DataTrigger Binding="{Binding state}" Value="-2">
+                            <Setter Property="Background" Value="#66FF0000" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding state}" Value="0">
+                            <Setter Property="Background" Value="#66FFFF00" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding state}" Value="1">
                             <Setter Property="Background" Value="#6600FF00" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding state}" Value="2">
+                            <Setter Property="Background" Value="#6600FF00" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding state}" Value="-100">
+                            <Setter Property="Foreground" Value="#99000000" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
@@ -32,8 +46,10 @@
             </ListView.DataContext>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name}" Width="200"/>
-                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest}" Width="400"/>
+                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name}" util:GridViewSort.PropertyName="name"/>
+                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest}" Width="Auto" util:GridViewSort.PropertyName="tempest"/>
+                    <GridViewColumn Header="Votes" DisplayMemberBinding="{Binding votes}" Width="Auto" util:GridViewSort.PropertyName="votes"/>
+                    <GridViewColumn Header="asd" DisplayMemberBinding="{Binding state}" Width="0" util:GridViewSort.PropertyName="state"/>
                 </GridView>
             </ListView.View>
         </ListView>

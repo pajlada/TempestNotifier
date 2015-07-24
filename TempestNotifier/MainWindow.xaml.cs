@@ -17,6 +17,8 @@ using System.Net.Http.Headers;
 using Newtonsoft.Json;
 using System.Timers;
 using System.Diagnostics;
+using System.Collections;
+using System.ComponentModel;
 
 namespace TempestNotifier
 {
@@ -28,6 +30,8 @@ namespace TempestNotifier
         public string prefix { get; set; }
 
         public string suffix { get; set; }
+
+        public int votes { get; set; }
     }
 
     class Map
@@ -36,7 +40,11 @@ namespace TempestNotifier
 
         public string tempest { get; set; }
 
-        public bool good { get; set; }
+        public int state { get; set; }
+
+        public int votes { get; set; }
+
+        public bool relevant { get; set; }
     }
 
     class TempestDescription
@@ -77,11 +85,14 @@ namespace TempestNotifier
                 { "phantoms", new TempestDescription { short_description = "10 additional tormented spirits", good = true } },
                 { "animation", new TempestDescription { short_description = "Weapons are animated", good = false } },
                 { "inspiration", new TempestDescription { short_description = "15% increased experience", good = true } },
+                { "fortune", new TempestDescription { short_description = "1 guaranteed unique item", good = true } },
             };
 
             timer = new System.Timers.Timer(Convert.ToInt32(TimeSpan.FromMinutes(2).TotalMilliseconds));
             timer.Elapsed += Timer_Elapsed;
             timer.Enabled = true;
+
+            listview_maps.Items.SortDescriptions.Add(new SortDescription("State", ListSortDirection.Descending));
 
             update_tempests();
         }
@@ -98,14 +109,13 @@ namespace TempestNotifier
                 this.lbl_last_update.Content = "Refreshing...";
                 this.btn_hard_refresh.IsEnabled = false;
             }));
-            using (var client = new HttpClient())
-            {
-                client.BaseAddress = new Uri("http://poetempest.com/api/v0/");
+
+            using (var client = new HttpClient()) {
+                client.BaseAddress = new Uri("http://poetempest.com/api/v1/");
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 HttpResponseMessage response = await client.GetAsync("current_tempests");
-                if (response.IsSuccessStatusCode)
-                {
+                if (response.IsSuccessStatusCode) {
                     var json_string = await response.Content.ReadAsStringAsync();
                     Dictionary<string, Tempest> tempests = JsonConvert.DeserializeObject<Dictionary<string, Tempest>>(json_string);
 
@@ -114,42 +124,60 @@ namespace TempestNotifier
                         this.listview_maps.Items.Clear();
                     }));
 
-                    foreach (KeyValuePair<string, Tempest> kv in tempests)
-                    {
+                    List<Map> to_remove = new List<Map>();
+                    foreach (KeyValuePair<string, Tempest> kv in tempests) {
                         await Dispatcher.BeginInvoke(new Action(() =>
                         {
                             string tempest_string = "";
                             var map_name = String.Format("{0} ({1})", kv.Key, this.map_levels[kv.Key]);
-                            bool good = true;
+                            int state = 0;
+                            int num_matches = 0;
 
-                            foreach (KeyValuePair<string, TempestDescription> relevant_tempest in this.relevant_tempests)
-                            {
-                                if (kv.Value.name.ToLower().Contains(relevant_tempest.Key))
-                                {
-                                    if (tempest_string.Length > 0)
-                                    {
+                            foreach (KeyValuePair<string, TempestDescription> relevant_tempest in this.relevant_tempests) {
+                                if (kv.Value.name.ToLower().Contains(relevant_tempest.Key)) {
+                                    num_matches++;
+                                    if (tempest_string.Length > 0) {
                                         tempest_string += ", ";
                                     }
                                     tempest_string += relevant_tempest.Value.short_description;
-                                    if (relevant_tempest.Value.good == false)
-                                    {
-                                        good = false;
+                                    if (relevant_tempest.Value.good == false) {
+                                        state -= 1;
+                                    } else {
+                                        state += 1;
                                     }
                                 }
                             }
 
-                            if (tempest_string.Length > 0)
-                            {
-                                int x = this.listview_maps.Items.Add(new Map { name = map_name, tempest = tempest_string, good = good });
-                                //this.listview_maps.Items.
-                                Console.WriteLine(String.Format("Added a map, got this in return: {0}", x));
+                            if (num_matches == 0) {
+                                tempest_string = kv.Value.name;
+                                state = -100;
+                            }
+
+                            bool added = false;
+                            foreach (Map item in this.listview_maps.Items) {
+                                if (item.name.Equals(map_name)) {
+                                    item.tempest = tempest_string;
+                                    item.state = state;
+                                    item.votes = kv.Value.votes;
+                                    added = true;
+                                    break;
+                                }
+                            }
+                            if (!added) {
+                                this.listview_maps.Items.Add(new Map { name = map_name, tempest = tempest_string, state = state, votes = kv.Value.votes, relevant = tempest_string.Length > 0 });
                             }
                         }));
                     }
 
                     await Dispatcher.BeginInvoke(new Action(() =>
                     {
+                        foreach (Map item in to_remove) {
+                            this.listview_maps.Items.Remove(item);
+                        }
+
                         this.lbl_last_update.Content = String.Format("Last update: {0}", DateTime.Now.ToString());
+
+                        listview_maps.Items.SortDescriptions.Add(new SortDescription("state", ListSortDirection.Descending));
                     }));
                 }
             }
