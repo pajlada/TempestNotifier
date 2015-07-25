@@ -38,13 +38,16 @@ namespace TempestNotifier
     {
         public string name { get; set; }
 
-        public string tempest { get; set; }
+        /* A combination of the maps name and level */
+        public string name_lvl { get; set; }
+
+        public string tempest_description { get; set; }
+
+        public Tempest tempest_data { get; set; }
 
         public int state { get; set; }
 
         public int votes { get; set; }
-
-        public bool relevant { get; set; }
     }
 
     class TempestDescription
@@ -126,6 +129,32 @@ namespace TempestNotifier
 
                     List<Map> to_remove = new List<Map>();
                     foreach (KeyValuePair<string, Tempest> kv in tempests) {
+                        /* Grab prefix and suffix of the tempest from the tempest name */
+                        string prefix = "";
+                        string suffix = "";
+                        string tempest_name = kv.Value.name;
+                        var tempest_parts = tempest_name.Split(new string[] { "Tempest" }, StringSplitOptions.None);
+                        Console.WriteLine(tempest_name);
+                        Console.WriteLine(tempest_parts.Length);
+                        /* If the length of tempest_parts is not 2, the split did not find an occurance of tempest.
+                           That means the name probably returned "none" or something in that manner" */
+                        if (tempest_parts.Length == 2) {
+                            prefix = tempest_parts[0].Trim();
+                            suffix = tempest_parts[1].Trim();
+                        }
+
+                        if (prefix.Length == 0) {
+                            prefix = "None";
+                        }
+                        if (suffix.Length == 0) {
+                            suffix = "None";
+                        } else {
+                            suffix = suffix.TrimStart("of ".ToCharArray());
+                        }
+
+                        kv.Value.prefix = prefix;
+                        kv.Value.suffix = suffix;
+
                         await Dispatcher.BeginInvoke(new Action(() =>
                         {
                             string tempest_string = "";
@@ -156,15 +185,24 @@ namespace TempestNotifier
                             bool added = false;
                             foreach (Map item in this.listview_maps.Items) {
                                 if (item.name.Equals(map_name)) {
-                                    item.tempest = tempest_string;
+                                    item.tempest_description = tempest_string;
                                     item.state = state;
                                     item.votes = kv.Value.votes;
+                                    item.tempest_data = kv.Value;
                                     added = true;
                                     break;
                                 }
                             }
                             if (!added) {
-                                this.listview_maps.Items.Add(new Map { name = map_name, tempest = tempest_string, state = state, votes = kv.Value.votes, relevant = tempest_string.Length > 0 });
+                                this.listview_maps.Items.Add(new Map
+                                {
+                                    name = kv.Key,
+                                    name_lvl = map_name,
+                                    tempest_description = tempest_string,
+                                    tempest_data = kv.Value,
+                                    state = state,
+                                    votes = kv.Value.votes,
+                                });
                             }
                         }));
                     }
@@ -188,9 +226,53 @@ namespace TempestNotifier
             }));
         }
 
+        private async Task<bool> vote(string map, string prefix, string suffix)
+        {
+            using (var client = new HttpClient()) {
+                client.BaseAddress = new Uri("http://poetempest.com/api/v1/");
+                var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("map", map),
+                    new KeyValuePair<string, string>("base", prefix),
+                    new KeyValuePair<string, string>("suffix", suffix),
+                });
+                var result = client.PostAsync("vote", content).Result;
+                string result_content = result.Content.ReadAsStringAsync().Result;
+                Console.WriteLine(result_content);
+
+                if (result_content.Length == 0) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private async void button_Click_1(object sender, RoutedEventArgs e)
         {
             await update_tempests();
+        }
+
+        private async void UpvoteTempestContextMenu_on_click(object sender, RoutedEventArgs e)
+        {
+            Map map = (Map)listview_maps.SelectedItem;
+            if (map != null) {
+                await vote(map.name, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
+            }
+        }
+
+        private async void Button_Click(object sender, RoutedEventArgs e)
+        {
+            Map map = ((FrameworkElement)sender).DataContext as Map;
+            if (map != null) {
+                bool result = vote(map.name, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower()).Result;
+                if (result) {
+                    Console.WriteLine("Successfully voted!");
+                    await update_tempests();
+                } else {
+                    Console.WriteLine("Error voting.");
+                }
+            }
         }
     }
 }

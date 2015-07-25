@@ -7,7 +7,7 @@
         x:Class="TempestNotifier.MainWindow"
         mc:Ignorable="d"
         xmlns:util="clr-namespace:Wpf.Util"
-        Title="Tempest Notifier v0.3-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        Title="Tempest Notifier v0.3.1-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
     <Grid Margin="0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="11*"/>
@@ -15,9 +15,12 @@
         </Grid.ColumnDefinitions>
         <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="93" Click="button_Click_1" Height="27" VerticalAlignment="Bottom" Grid.ColumnSpan="2"/>
         <Label x:Name="lbl_last_update" Margin="31,0,10,0" FontSize="16" VerticalAlignment="Bottom" Height="37" Grid.Column="1"/>
-        <ListView x:Name="listview_maps" Margin="10,10,10,48" FontSize="16" Grid.ColumnSpan="2">
+        <ListView x:Name="listview_maps" Margin="10,10,10,48" FontSize="14.667" Grid.ColumnSpan="2">
             <ListView.Resources>
                 <Style TargetType="{x:Type ListViewItem}">
+                    <Style.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#66000000" />
+                    </Style.Resources>
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding state}" Value="-1">
@@ -41,15 +44,27 @@
                     </Style.Triggers>
                 </Style>
             </ListView.Resources>
+            <ListView.ContextMenu>
+                <ContextMenu Name="TempestContextMenu" StaysOpen="True">
+                    <MenuItem Header="Upvote" Name="UpvoteTempestContextMenu" Click="UpvoteTempestContextMenu_on_click" />
+                </ContextMenu>
+            </ListView.ContextMenu>
             <ListView.DataContext>
                 <local:Map/>
             </ListView.DataContext>
             <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name}" util:GridViewSort.PropertyName="name"/>
-                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest}" Width="Auto" util:GridViewSort.PropertyName="tempest"/>
+                <GridView x:Name="gridview_maps" >
+                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name_lvl}" util:GridViewSort.PropertyName="name"/>
+                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest_description}" Width="Auto" util:GridViewSort.PropertyName="tempest_description"/>
                     <GridViewColumn Header="Votes" DisplayMemberBinding="{Binding votes}" Width="Auto" util:GridViewSort.PropertyName="votes"/>
                     <GridViewColumn Header="asd" DisplayMemberBinding="{Binding state}" Width="0" util:GridViewSort.PropertyName="state"/>
+                    <GridViewColumn>
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Upvote" Click="Button_Click" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>
