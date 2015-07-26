@@ -122,11 +122,6 @@ namespace TempestNotifier
                     var json_string = await response.Content.ReadAsStringAsync();
                     Dictionary<string, Tempest> tempests = JsonConvert.DeserializeObject<Dictionary<string, Tempest>>(json_string);
 
-                    await Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        this.listview_maps.Items.Clear();
-                    }));
-
                     List<Map> to_remove = new List<Map>();
                     foreach (KeyValuePair<string, Tempest> kv in tempests) {
                         /* Grab prefix and suffix of the tempest from the tempest name */
@@ -134,8 +129,6 @@ namespace TempestNotifier
                         string suffix = "";
                         string tempest_name = kv.Value.name;
                         var tempest_parts = tempest_name.Split(new string[] { "Tempest" }, StringSplitOptions.None);
-                        Console.WriteLine(tempest_name);
-                        Console.WriteLine(tempest_parts.Length);
                         /* If the length of tempest_parts is not 2, the split did not find an occurance of tempest.
                            That means the name probably returned "none" or something in that manner" */
                         if (tempest_parts.Length == 2) {
@@ -182,18 +175,13 @@ namespace TempestNotifier
                                 state = -100;
                             }
 
-                            bool added = false;
-                            foreach (Map item in this.listview_maps.Items) {
-                                if (item.name.Equals(map_name)) {
-                                    item.tempest_description = tempest_string;
-                                    item.state = state;
-                                    item.votes = kv.Value.votes;
-                                    item.tempest_data = kv.Value;
-                                    added = true;
-                                    break;
-                                }
-                            }
-                            if (!added) {
+                            Map map = listview_maps.Items.Cast<Map>().FirstOrDefault(i => i.name == kv.Key);
+                            if (map != null) {
+                                map.tempest_description = tempest_string;
+                                map.state = state;
+                                map.votes = kv.Value.votes;
+                                map.tempest_data = kv.Value;
+                            } else {
                                 this.listview_maps.Items.Add(new Map
                                 {
                                     name = kv.Key,
@@ -238,7 +226,6 @@ namespace TempestNotifier
                 });
                 var result = client.PostAsync("vote", content).Result;
                 string result_content = result.Content.ReadAsStringAsync().Result;
-                Console.WriteLine(result_content);
 
                 if (result_content.Length == 0) {
                     return true;

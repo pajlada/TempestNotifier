@@ -7,7 +7,7 @@
         x:Class="TempestNotifier.MainWindow"
         mc:Ignorable="d"
         xmlns:util="clr-namespace:Wpf.Util"
-        Title="Tempest Notifier v0.3.1-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        Title="Tempest Notifier v0.3.2-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
     <Grid Margin="0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="11*"/>
