@@ -38,6 +38,8 @@ namespace TempestNotifier
     {
         public string name { get; set; }
 
+        public int level { get; set; }
+
         /* A combination of the maps name and level */
         public string name_lvl { get; set; }
 
@@ -95,14 +97,51 @@ namespace TempestNotifier
             timer.Elapsed += Timer_Elapsed;
             timer.Enabled = true;
 
-            listview_maps.Items.SortDescriptions.Add(new SortDescription("State", ListSortDirection.Descending));
+            listview_maps.Items.SortDescriptions.Clear();
+            listview_maps.Items.SortDescriptions.Add(new SortDescription("state", ListSortDirection.Descending));
+            listview_maps.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Ascending));
+            listview_maps.Items.SortDescriptions.Add(new SortDescription("name", ListSortDirection.Ascending));
 
-            update_tempests();
+            initialize_data();
+        }
+
+        private async Task initialize_data()
+        {
+            await update_map_levels();
+
+            await update_tempests();
         }
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
             update_tempests().Wait();
+        }
+
+        public async Task update_map_levels()
+        {
+            await Dispatcher.BeginInvoke(new Action(() =>
+            {
+                this.lbl_last_update.Content = "Refreshing map levels...";
+                this.btn_hard_refresh.IsEnabled = false;
+            }));
+            using (var client = new HttpClient()) {
+                client.BaseAddress = new Uri("http://poetempest.com/api/v1/");
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                HttpResponseMessage response = await client.GetAsync("maps");
+                if (response.IsSuccessStatusCode) {
+                    var json_string = await response.Content.ReadAsStringAsync();
+                    Dictionary<string, int> tempests = JsonConvert.DeserializeObject<Dictionary<string, int>>(json_string);
+
+                    foreach (KeyValuePair<string, int> kv in tempests) {
+                        this.map_levels[kv.Key] = kv.Value;
+                    }
+                }
+            }
+            await Dispatcher.BeginInvoke(new Action(() =>
+            {
+                this.btn_hard_refresh.IsEnabled = true;
+            }));
         }
 
         public async Task update_tempests()
@@ -122,36 +161,19 @@ namespace TempestNotifier
                     var json_string = await response.Content.ReadAsStringAsync();
                     Dictionary<string, Tempest> tempests = JsonConvert.DeserializeObject<Dictionary<string, Tempest>>(json_string);
 
-                    List<Map> to_remove = new List<Map>();
                     foreach (KeyValuePair<string, Tempest> kv in tempests) {
-                        /* Grab prefix and suffix of the tempest from the tempest name */
-                        string prefix = "";
-                        string suffix = "";
                         string tempest_name = kv.Value.name;
-                        var tempest_parts = tempest_name.Split(new string[] { "Tempest" }, StringSplitOptions.None);
-                        /* If the length of tempest_parts is not 2, the split did not find an occurance of tempest.
-                           That means the name probably returned "none" or something in that manner" */
-                        if (tempest_parts.Length == 2) {
-                            prefix = tempest_parts[0].Trim();
-                            suffix = tempest_parts[1].Trim();
-                        }
-
-                        if (prefix.Length == 0) {
-                            prefix = "None";
-                        }
-                        if (suffix.Length == 0) {
-                            suffix = "None";
-                        } else {
-                            suffix = suffix.TrimStart("of ".ToCharArray());
-                        }
-
-                        kv.Value.prefix = prefix;
-                        kv.Value.suffix = suffix;
 
                         await Dispatcher.BeginInvoke(new Action(() =>
                         {
                             string tempest_string = "";
-                            var map_name = String.Format("{0} ({1})", kv.Key, this.map_levels[kv.Key]);
+                            int map_level = 100;
+                            try {
+                                map_level = this.map_levels[kv.Key];
+                            } catch (Exception e) {
+                                Console.WriteLine("Caught exception while trying to get a map's level: " + e);
+                            }
+                            var map_name = String.Format("{0} ({1})", kv.Key, map_level);
                             int state = 0;
                             int num_matches = 0;
 
@@ -185,6 +207,7 @@ namespace TempestNotifier
                                 this.listview_maps.Items.Add(new Map
                                 {
                                     name = kv.Key,
+                                    level = map_level,
                                     name_lvl = map_name,
                                     tempest_description = tempest_string,
                                     tempest_data = kv.Value,
@@ -197,10 +220,6 @@ namespace TempestNotifier
 
                     await Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        foreach (Map item in to_remove) {
-                            this.listview_maps.Items.Remove(item);
-                        }
-
                         this.lbl_last_update.Content = String.Format("Last update: {0}", DateTime.Now.ToString());
 
                         listview_maps.Items.SortDescriptions.Add(new SortDescription("state", ListSortDirection.Descending));

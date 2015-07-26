@@ -6,8 +6,7 @@
         xmlns:local="clr-namespace:TempestNotifier"
         x:Class="TempestNotifier.MainWindow"
         mc:Ignorable="d"
-        xmlns:util="clr-namespace:Wpf.Util"
-        Title="Tempest Notifier v0.3.2-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        Title="Tempest Notifier v0.4.0-alpha" Height="324" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
     <Grid Margin="0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="11*"/>
@@ -54,10 +53,9 @@
             </ListView.DataContext>
             <ListView.View>
                 <GridView x:Name="gridview_maps" >
-                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name_lvl}" util:GridViewSort.PropertyName="name"/>
-                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest_description}" Width="Auto" util:GridViewSort.PropertyName="tempest_description"/>
-                    <GridViewColumn Header="Votes" DisplayMemberBinding="{Binding votes}" Width="Auto" util:GridViewSort.PropertyName="votes"/>
-                    <GridViewColumn Header="asd" DisplayMemberBinding="{Binding state}" Width="0" util:GridViewSort.PropertyName="state"/>
+                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name_lvl}"/>
+                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest_description}" Width="Auto"/>
+                    <GridViewColumn Header="Votes" DisplayMemberBinding="{Binding votes}" Width="Auto"/>
                     <GridViewColumn>
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
