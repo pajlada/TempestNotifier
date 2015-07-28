@@ -361,7 +361,16 @@ namespace TempestNotifier
             if (map != null) {
                 TempestAffix prefix = (TempestAffix)cb_prefix.SelectedItem;
                 TempestAffix suffix = (TempestAffix)cb_suffix.SelectedItem;
-                if (prefix != null && suffix != null) {
+                if (prefix == null) {
+                    prefix = cb_prefix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == "none");
+                    cb_prefix.SelectedItem = prefix;
+                }
+                if (suffix == null) {
+                    suffix = cb_suffix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == "none");
+                    cb_suffix.SelectedItem = suffix;
+                }
+
+                if (prefix != null || suffix != null) {
                     bool result = await vote(map.name, prefix.name, suffix.name);
                     if (result) {
                         Console.WriteLine("Successfully voted!");
