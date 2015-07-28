@@ -19,9 +19,32 @@ using System.Timers;
 using System.Diagnostics;
 using System.Collections;
 using System.ComponentModel;
+using System.Globalization;
+using System.Threading;
 
 namespace TempestNotifier
 {
+    class TempestAffix
+    {
+        public string name;
+        public string description;
+
+        public override string ToString()
+        {
+            CultureInfo culture_info = Thread.CurrentThread.CurrentCulture;
+            TextInfo text_info = culture_info.TextInfo;
+            return text_info.ToTitleCase(name) + " (" + description + ")";
+        }
+    }
+
+    class TempestAffixes
+    {
+        [JsonProperty(PropertyName = "bases")]
+        public Dictionary<string, string> prefixes { get; set; }
+
+        public Dictionary<string, string> suffixes { get; set; }
+    }
+
     class Tempest
     {
         public string name { get; set; }
@@ -61,9 +84,10 @@ namespace TempestNotifier
 
     public partial class MainWindow : Window
     {
-        Timer timer;
+        System.Timers.Timer timer;
         Dictionary<String, TempestDescription> relevant_tempests;
-        Dictionary<String, int> map_levels;
+        Dictionary<string, int> map_levels;
+        TempestAffixes tempest_affixes;
 
         public MainWindow()
         {
@@ -91,6 +115,7 @@ namespace TempestNotifier
                 { "animation", new TempestDescription { short_description = "Weapons are animated", good = false } },
                 { "inspiration", new TempestDescription { short_description = "15% increased experience", good = true } },
                 { "fortune", new TempestDescription { short_description = "1 guaranteed unique item", good = true } },
+                { "fate", new TempestDescription { short_description = "1 guaranteed vaal fragment", good = true } },
             };
 
             timer = new System.Timers.Timer(Convert.ToInt32(TimeSpan.FromMinutes(2).TotalMilliseconds));
@@ -102,14 +127,25 @@ namespace TempestNotifier
             listview_maps.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Ascending));
             listview_maps.Items.SortDescriptions.Add(new SortDescription("name", ListSortDirection.Ascending));
 
-            initialize_data();
+            this.cb_prefix.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler(this.cb_prefix_TextChanged));
+
+            Task.Factory.StartNew(() => initialize_data());
         }
 
-        private async Task initialize_data()
+        private void initialize_data()
         {
-            await update_map_levels();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                this.lbl_last_update.Content = "Fetching map levels/affixes...";
+                this.btn_hard_refresh.IsEnabled = false;
+            }));
 
-            await update_tempests();
+            Task[] tasks = new Task[2];
+            tasks[0] = update_map_levels();
+            tasks[1] = update_tempest_affixes();
+            Task.WaitAll(tasks);
+
+            update_tempests();
         }
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
@@ -119,33 +155,40 @@ namespace TempestNotifier
 
         public async Task update_map_levels()
         {
-            await Dispatcher.BeginInvoke(new Action(() =>
-            {
-                this.lbl_last_update.Content = "Refreshing map levels...";
-                this.btn_hard_refresh.IsEnabled = false;
-            }));
-            using (var client = new HttpClient()) {
-                client.BaseAddress = new Uri("http://poetempest.com/api/v1/");
-                client.DefaultRequestHeaders.Accept.Clear();
-                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                HttpResponseMessage response = await client.GetAsync("maps");
-                if (response.IsSuccessStatusCode) {
-                    var json_string = await response.Content.ReadAsStringAsync();
-                    Dictionary<string, int> tempests = JsonConvert.DeserializeObject<Dictionary<string, int>>(json_string);
+            this.map_levels = JsonConvert.DeserializeObject<Dictionary<string, int>>(await TempestAPI.get_raw("maps"));
+        }
 
-                    foreach (KeyValuePair<string, int> kv in tempests) {
-                        this.map_levels[kv.Key] = kv.Value;
-                    }
-                }
-            }
+        public async Task update_tempest_affixes()
+        {
+            this.tempest_affixes = JsonConvert.DeserializeObject<TempestAffixes>(await TempestAPI.get_raw("tempests"));
+
             await Dispatcher.BeginInvoke(new Action(() =>
             {
-                this.btn_hard_refresh.IsEnabled = true;
+                /* Populate the comboboxes with the tempest affixes. */
+                this.cb_prefix.Items.Clear();
+                this.cb_suffix.Items.Clear();
+
+                foreach (KeyValuePair<string, string> affix in this.tempest_affixes.prefixes) {
+                    string description = affix.Value;
+                    try {
+                        description = relevant_tempests[affix.Key].short_description;
+                    } catch (Exception e) { }
+                    this.cb_prefix.Items.Add(new TempestAffix { name = affix.Key, description = description });
+                }
+
+                foreach (KeyValuePair<string, string> affix in this.tempest_affixes.suffixes) {
+                    string description = affix.Value;
+                    try {
+                        description = relevant_tempests[affix.Key].short_description;
+                    } catch (Exception e) { }
+                    this.cb_suffix.Items.Add(new TempestAffix { name = affix.Key, description = description });
+                }
             }));
         }
 
         public async Task update_tempests()
         {
+            Console.Write("Updating tempests...");
             await Dispatcher.BeginInvoke(new Action(() =>
             {
                 this.lbl_last_update.Content = "Refreshing...";
@@ -277,6 +320,55 @@ namespace TempestNotifier
                     await update_tempests();
                 } else {
                     Console.WriteLine("Error voting.");
+                }
+            }
+        }
+
+        private void cb_prefix_TextChanged(object sender, RoutedEventArgs e)
+        {
+            ComboBox cb = (ComboBox)sender;
+            Console.WriteLine(cb.Text);
+        }
+
+        private void listview_maps_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            foreach (Map map in e.AddedItems) {
+                Console.WriteLine(map.name);
+                if (map.tempest_data.prefix == "unknown" || map.tempest_data.suffix == "unknown") {
+                    /** The tempest for this map is unknown.
+                      * What behaviour makes most sense?
+                      * 1) Set both comboboxes to the "None" tempest.
+                      * 2) Set both comboboxes to Empty
+                      * I think 2)
+                      **/
+
+                    this.cb_prefix.SelectedIndex = -1;
+                    this.cb_suffix.SelectedIndex = -1;
+                } else {
+                    this.cb_prefix.SelectedItem = this.cb_prefix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.prefix);
+                    this.cb_suffix.SelectedItem = this.cb_suffix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.suffix);
+                }
+                Console.WriteLine(map.tempest_data.prefix);
+                Console.WriteLine(map.tempest_data.suffix);
+                break;
+            }
+        }
+
+        private async void btn_vote_Click(object sender, RoutedEventArgs e)
+        {
+            Map map = (Map)listview_maps.SelectedItem;
+
+            if (map != null) {
+                TempestAffix prefix = (TempestAffix)cb_prefix.SelectedItem;
+                TempestAffix suffix = (TempestAffix)cb_suffix.SelectedItem;
+                if (prefix != null && suffix != null) {
+                    bool result = await vote(map.name, prefix.name, suffix.name);
+                    if (result) {
+                        Console.WriteLine("Successfully voted!");
+                        await update_tempests();
+                    } else {
+                        Console.WriteLine("Error voting.");
+                    }
                 }
             }
         }
