@@ -4,4 +4,4 @@ TempestNotifier is a simple program that fetches tempest status on maps from the
 
 The purpose of the program is to display all **relevant** active tempests to the user.
 
-![asd](http://i.imgur.com/an2hcES.png)
+![Image](http://i.imgur.com/BqD2miP.png)
