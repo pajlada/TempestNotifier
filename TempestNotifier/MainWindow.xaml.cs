@@ -21,6 +21,7 @@ using System.Collections;
 using System.ComponentModel;
 using System.Globalization;
 using System.Threading;
+using System.Windows.Markup;
 
 namespace TempestNotifier
 {
@@ -63,9 +64,6 @@ namespace TempestNotifier
 
         public int level { get; set; }
 
-        /* A combination of the maps name and level */
-        public string name_lvl { get; set; }
-
         public string tempest_description { get; set; }
 
         public Tempest tempest_data { get; set; }
@@ -82,6 +80,37 @@ namespace TempestNotifier
         public bool good { get; set; }
     }
 
+    public abstract class BaseConverter : MarkupExtension
+    {
+        public override object ProvideValue(IServiceProvider serviceProvider)
+        {
+            return this;
+        }
+    }
+
+    [ValueConversion(typeof(object), typeof(string))]
+    public class MapFormatConverter : BaseConverter, IValueConverter
+    {
+        public string title_case(string name)
+        {
+            CultureInfo culture_info = Thread.CurrentThread.CurrentCulture;
+            TextInfo text_info = culture_info.TextInfo;
+            return text_info.ToTitleCase(name.Replace('_', ' '));
+        }
+        public object Convert(object value, Type targetType, object parameter,
+                          System.Globalization.CultureInfo culture)
+        {
+            Map map = value as Map;
+            return String.Format("{0} ({1})", title_case(map.name), map.level);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter,
+                        System.Globalization.CultureInfo culture)
+        {
+            return null;
+        }
+    }
+
     public partial class MainWindow : Window
     {
         System.Timers.Timer timer;
@@ -93,11 +122,7 @@ namespace TempestNotifier
         {
             InitializeComponent();
 
-            map_levels = new Dictionary<string, int>
-            {
-                { "crypt", 68 }, { "desert", 68 }, { "dunes", 68 }, { "dungeon", 68 }, { "grotto", 68 }, { "pit", 68 }, { "tropical_island", 68 }, { "aqueduct", 69 }, { "arcade", 69 }, { "cemetery", 69 }, { "channel", 69 }, { "mountain_ledge", 69 }, { "sewer", 69 }, { "thicket", 69 }, { "wharf", 69 }, { "ghetto", 70 }, { "mud_geyser", 70 }, { "museum", 70 }, { "quarry", 70 }, { "reef", 70 }, { "spider_lair", 70 }, { "vaal_pyramid", 70 }, { "arena", 71 }, { "overgrown_shrine", 71 }, { "promenade", 71 }, { "shore", 71 }, { "spider_forest", 71 }, { "tunnel", 71 }, { "bog", 72 }, { "coves", 72 }, { "graveyard", 72 }, { "pier", 72 }, { "underground_sea", 72 }, { "villa", 72 }, { "arachnid_nest", 73 }, { "catacomb", 73 }, { "colonnade", 73 }, { "dry_woods", 73 }, { "strand", 73 }, { "temple", 73 }, { "jungle_valley", 74 }, { "labyrinth", 74 }, { "mine", 74 }, { "torture_chamber", 74 }, { "waste_pool", 74 }, { "canyon", 75 }, { "cells", 75 }, { "dark_forest", 75 }, { "dry_peninsula", 75 }, { "orchard", 75 }, { "arid_lake", 76 }, { "gorge", 76 }, { "residence", 76 }, { "underground_river", 76 }, { "abyss", 77 }, { "bazaar", 77 }, { "necropolis", 77 }, { "plateau", 77 }, { "academy", 78 }, { "crematorium", 78 }, { "precinct", 78 }, { "springs", 78 }, { "arsenal", 79 }, { "overgrown_ruin", 79 }, { "shipyard", 79 }, { "village_ruin", 79 }, { "courtyard", 80 }, { "excavation", 80 }, { "wasteland", 80 }, { "waterways", 80 }, { "maze", 81 }, { "palace", 81 }, { "shrine", 81 }, { "vaal_temple", 81 }, { "colosseum", 82 }, { "core", 82 }, { "volcano", 82 }
-            };
-
+            map_levels = new Dictionary<string, int>();
             relevant_tempests = new Dictionary<string, TempestDescription>
             {
                 { "abyssal", new TempestDescription { short_description = "Chaos damage", good = false } },
@@ -128,13 +153,11 @@ namespace TempestNotifier
             listview_maps.Items.SortDescriptions.Add(new SortDescription("name", ListSortDirection.Ascending));
 
             this.cb_prefix.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler(this.cb_prefix_TextChanged));
-
-            Task.Factory.StartNew(() => initialize_data());
         }
 
-        private void initialize_data()
+        private async void initialize_data()
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            await Dispatcher.BeginInvoke(new Action(() =>
             {
                 this.lbl_last_update.Content = "Fetching map levels/affixes...";
                 this.btn_hard_refresh.IsEnabled = false;
@@ -145,7 +168,12 @@ namespace TempestNotifier
             tasks[1] = update_tempest_affixes();
             Task.WaitAll(tasks);
 
-            update_tempests();
+            await update_tempests();
+
+            await Dispatcher.BeginInvoke(new Action(() =>
+            {
+                update_column_width();
+            }));
         }
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
@@ -155,7 +183,7 @@ namespace TempestNotifier
 
         public async Task update_map_levels()
         {
-            this.map_levels = JsonConvert.DeserializeObject<Dictionary<string, int>>(await TempestAPI.get_raw("maps"));
+            this.map_levels = JsonConvert.DeserializeObject<Dictionary<string, int>>(await TempestAPI.get_raw("maps", "v0"));
         }
 
         public async Task update_tempest_affixes()
@@ -170,17 +198,21 @@ namespace TempestNotifier
 
                 foreach (KeyValuePair<string, string> affix in this.tempest_affixes.prefixes) {
                     string description = affix.Value;
-                    try {
-                        description = relevant_tempests[affix.Key].short_description;
-                    } catch (Exception e) { }
+                    TempestDescription td;
+                    relevant_tempests.TryGetValue(affix.Key, out td);
+                    if (td != null) {
+                        description = td.short_description;
+                    }
                     this.cb_prefix.Items.Add(new TempestAffix { name = affix.Key, description = description });
                 }
 
                 foreach (KeyValuePair<string, string> affix in this.tempest_affixes.suffixes) {
                     string description = affix.Value;
-                    try {
-                        description = relevant_tempests[affix.Key].short_description;
-                    } catch (Exception e) { }
+                    TempestDescription td;
+                    relevant_tempests.TryGetValue(affix.Key, out td);
+                    if (td != null) {
+                        description = td.short_description;
+                    }
                     this.cb_suffix.Items.Add(new TempestAffix { name = affix.Key, description = description });
                 }
             }));
@@ -216,7 +248,6 @@ namespace TempestNotifier
                             } catch (Exception e) {
                                 Console.WriteLine("Caught exception while trying to get a map's level: " + e);
                             }
-                            var map_name = String.Format("{0} ({1})", kv.Key, map_level);
                             int state = 0;
                             int num_matches = 0;
 
@@ -251,7 +282,6 @@ namespace TempestNotifier
                                 {
                                     name = kv.Key,
                                     level = map_level,
-                                    name_lvl = map_name,
                                     tempest_description = tempest_string,
                                     tempest_data = kv.Value,
                                     state = state,
@@ -286,7 +316,7 @@ namespace TempestNotifier
                     new KeyValuePair<string, string>("base", prefix),
                     new KeyValuePair<string, string>("suffix", suffix),
                 });
-                var result = client.PostAsync("vote", content).Result;
+                var result = await client.PostAsync("vote", content);
                 string result_content = result.Content.ReadAsStringAsync().Result;
 
                 if (result_content.Length == 0) {
@@ -327,7 +357,7 @@ namespace TempestNotifier
         private void cb_prefix_TextChanged(object sender, RoutedEventArgs e)
         {
             ComboBox cb = (ComboBox)sender;
-            Console.WriteLine(cb.Text);
+            //Console.WriteLine(cb.Text);
         }
 
         private void listview_maps_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -348,8 +378,6 @@ namespace TempestNotifier
                     this.cb_prefix.SelectedItem = this.cb_prefix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.prefix);
                     this.cb_suffix.SelectedItem = this.cb_suffix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.suffix);
                 }
-                Console.WriteLine(map.tempest_data.prefix);
-                Console.WriteLine(map.tempest_data.suffix);
                 break;
             }
         }
@@ -380,6 +408,30 @@ namespace TempestNotifier
                     }
                 }
             }
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            Task.Factory.StartNew(() => initialize_data());
+        }
+
+        private void update_column_width()
+        {
+            ListView lv = listview_maps;
+            GridView gv = lv.View as GridView;
+            var actual_width = lv.ActualWidth - SystemParameters.VerticalScrollBarWidth * 2;
+            for (int i = 0; i < gv.Columns.Count; ++i) {
+                /* We skip the second column, because that's the column we want to fill! */
+                if (i != 1) {
+                    actual_width -= gv.Columns[i].ActualWidth;
+                }
+            }
+            gv.Columns[1].Width = actual_width;
+        }
+
+        private void listview_maps_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            update_column_width();
         }
     }
 }

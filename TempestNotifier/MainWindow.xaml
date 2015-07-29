@@ -5,8 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TempestNotifier"
         x:Class="TempestNotifier.MainWindow"
+        xmlns:tn="clr-namespace:TempestNotifier"
         mc:Ignorable="d"
-        Title="Tempest Notifier v0.4.1-alpha" Height="417" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        Title="Tempest Notifier v0.4.1-alpha" Height="417" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
+    <Window.Resources>
+        <tn:MapFormatConverter x:Key="MapFormatConverter" />
+    </Window.Resources>
     <Grid Margin="0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="11*"/>
@@ -14,7 +18,7 @@
         </Grid.ColumnDefinitions>
         <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="80" Click="button_Click_1" Height="23" VerticalAlignment="Bottom" Grid.ColumnSpan="2" FontSize="13.333"/>
         <Label x:Name="lbl_last_update" Margin="103,0,10,0" FontSize="16" VerticalAlignment="Bottom" Height="37" Grid.Column="1"/>
-        <ListView x:Name="listview_maps" Margin="10,10,10,100" FontSize="13.333" Grid.ColumnSpan="2" SelectionChanged="listview_maps_SelectionChanged" SelectionMode="Single">
+        <ListView x:Name="listview_maps" Margin="10,10,10,100" FontSize="13.333" Grid.ColumnSpan="2" SelectionChanged="listview_maps_SelectionChanged" SelectionMode="Single" SizeChanged="listview_maps_SizeChanged">
             <ListView.Resources>
                 <Style TargetType="{x:Type ListViewItem}">
                     <Style.Resources>
@@ -52,10 +56,10 @@
                 <local:Map/>
             </ListView.DataContext>
             <ListView.View>
-                <GridView x:Name="gridview_maps" >
-                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding name_lvl}"/>
-                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest_description}" Width="Auto"/>
-                    <GridViewColumn Header="Votes" DisplayMemberBinding="{Binding votes}" Width="Auto"/>
+                <GridView x:Name="gridview_maps">
+                    <GridViewColumn Header="Map" DisplayMemberBinding="{Binding Converter={StaticResource MapFormatConverter}}" Width="155"/>
+                    <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest_description}" Width="Auto" />
+                    <GridViewColumn Header="Votes" DisplayMemberBinding="{Binding votes}"/>
                     <GridViewColumn>
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
