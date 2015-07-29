@@ -10,14 +10,12 @@
         Title="Tempest Notifier v0.4.1-alpha" Height="417" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
     <Window.Resources>
         <tn:MapFormatConverter x:Key="MapFormatConverter" />
+        <tn:CanUpvote x:Key="CanUpvote" />
     </Window.Resources>
     <Grid Margin="0">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="11*"/>
-            <ColumnDefinition Width="79*"/>
-        </Grid.ColumnDefinitions>
-        <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="80" Click="button_Click_1" Height="23" VerticalAlignment="Bottom" Grid.ColumnSpan="2" FontSize="13.333"/>
-        <Label x:Name="lbl_last_update" Margin="103,0,10,0" FontSize="16" VerticalAlignment="Bottom" Height="37" Grid.Column="1"/>
+        <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="80" Click="button_Click_1" Height="23" VerticalAlignment="Bottom" FontSize="13.333"/>
+        <Button x:Name="btn_vote" Content="Vote" HorizontalAlignment="Left" Margin="95,0,0,10" VerticalAlignment="Bottom" Width="80" FontSize="13.333" Click="btn_vote_Click" IsEnabled="False" Height="23"/>
+        <Label x:Name="lbl_last_update" Margin="180,0,10,0" FontSize="16" VerticalAlignment="Bottom" Height="37"/>
         <ListView x:Name="listview_maps" Margin="10,10,10,100" FontSize="13.333" Grid.ColumnSpan="2" SelectionChanged="listview_maps_SelectionChanged" SelectionMode="Single" SizeChanged="listview_maps_SizeChanged">
             <ListView.Resources>
                 <Style TargetType="{x:Type ListViewItem}">
@@ -26,6 +24,13 @@
                     </Style.Resources>
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                     <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding state}" Value="-1" />
+                                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type DataGridRow}}}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Background" Value="#66FF00FF" />
+                        </MultiDataTrigger>
                         <DataTrigger Binding="{Binding state}" Value="-1">
                             <Setter Property="Background" Value="#66FF0000" />
                         </DataTrigger>
@@ -42,7 +47,7 @@
                             <Setter Property="Background" Value="#6600FF00" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding state}" Value="-100">
-                            <Setter Property="Foreground" Value="#99000000" />
+                            <Setter Property="Foreground" Value="#BB000000" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
@@ -60,20 +65,19 @@
                     <GridViewColumn Header="Map" DisplayMemberBinding="{Binding Converter={StaticResource MapFormatConverter}}" Width="155"/>
                     <GridViewColumn Header="Tempest" DisplayMemberBinding="{Binding tempest_description}" Width="Auto" />
                     <GridViewColumn Header="Votes" DisplayMemberBinding="{Binding votes}"/>
-                    <GridViewColumn>
+                    <GridViewColumn x:Name="UpvoteHeader">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="Upvote" Click="Button_Click" />
+                                <Button Content="Upvote" Click="Button_Click" IsEnabled="{Binding Converter={tn:CanUpvote}}"/>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>
-        <ComboBox x:Name="cb_prefix" HorizontalAlignment="Left" Margin="63,0,0,69" Width="557" Grid.ColumnSpan="2" Height="21" VerticalAlignment="Bottom" IsEditable="True"/>
-        <Label x:Name="lbl_prefix" Content="Prefix:" HorizontalAlignment="Left" Margin="10,0,0,69" VerticalAlignment="Bottom" FontSize="13.333"/>
-        <Label x:Name="lvl_suffix" Content="Suffix:" HorizontalAlignment="Left" Margin="10,0,0,38" FontSize="13.333" RenderTransformOrigin="1.5,0.846" Height="26" VerticalAlignment="Bottom"/>
-        <ComboBox x:Name="cb_suffix" HorizontalAlignment="Right" Margin="0,0,10,42" Width="557" IsEditable="True" Height="19" VerticalAlignment="Bottom" Grid.ColumnSpan="2"/>
-        <Button x:Name="btn_vote" Content="Vote" Grid.Column="1" HorizontalAlignment="Left" Margin="18,0,0,10" VerticalAlignment="Bottom" Width="80" FontSize="13.333" Click="btn_vote_Click"/>
+        <ComboBox x:Name="cb_prefix" Margin="63,0,10,69" Grid.ColumnSpan="2" Height="21" VerticalAlignment="Bottom" IsEditable="True" IsEnabled="False"/>
+        <Label x:Name="lbl_prefix" Content="Prefix:" HorizontalAlignment="Left" Margin="10,0,0,69" VerticalAlignment="Bottom" FontSize="13.333" Height="26" Width="48"/>
+        <Label x:Name="lvl_suffix" Content="Suffix:" HorizontalAlignment="Left" Margin="10,0,0,38" FontSize="13.333" RenderTransformOrigin="1.5,0.846" Height="26" VerticalAlignment="Bottom" Width="48"/>
+        <ComboBox x:Name="cb_suffix" Margin="63,0,10,42" IsEditable="True" Height="19" VerticalAlignment="Bottom" Grid.ColumnSpan="2" IsEnabled="False"/>
     </Grid>
 </Window>

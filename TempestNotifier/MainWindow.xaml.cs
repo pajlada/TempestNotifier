@@ -111,6 +111,22 @@ namespace TempestNotifier
         }
     }
 
+    public class CanUpvote : BaseConverter, IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter,
+                          System.Globalization.CultureInfo culture)
+        {
+            Map map = value as Map;
+            return (map.tempest_data.prefix != "unknown");
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter,
+                        System.Globalization.CultureInfo culture)
+        {
+            return null;
+        }
+    }
+
     public partial class MainWindow : Window
     {
         System.Timers.Timer timer;
@@ -362,23 +378,26 @@ namespace TempestNotifier
 
         private void listview_maps_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            foreach (Map map in e.AddedItems) {
-                Console.WriteLine(map.name);
-                if (map.tempest_data.prefix == "unknown" || map.tempest_data.suffix == "unknown") {
-                    /** The tempest for this map is unknown.
-                      * What behaviour makes most sense?
-                      * 1) Set both comboboxes to the "None" tempest.
-                      * 2) Set both comboboxes to Empty
-                      * I think 2)
-                      **/
+            Map map = listview_maps.SelectedItem as Map;
 
-                    this.cb_prefix.SelectedIndex = -1;
-                    this.cb_suffix.SelectedIndex = -1;
+            if (map == null) {
+                cb_prefix.SelectedIndex = -1;
+                cb_suffix.SelectedIndex = -1;
+                btn_vote.IsEnabled = false;
+                cb_prefix.IsEnabled = false;
+                cb_suffix.IsEnabled = false;
+            } else {
+                btn_vote.IsEnabled = true;
+                cb_prefix.IsEnabled = true;
+                cb_suffix.IsEnabled = true;
+
+                if (map.tempest_data.prefix == "unknown" || map.tempest_data.suffix == "unknown") {
+                    cb_prefix.SelectedIndex = -1;
+                    cb_suffix.SelectedIndex = -1;
                 } else {
-                    this.cb_prefix.SelectedItem = this.cb_prefix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.prefix);
-                    this.cb_suffix.SelectedItem = this.cb_suffix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.suffix);
+                    cb_prefix.SelectedItem = cb_prefix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.prefix);
+                    cb_suffix.SelectedItem = cb_suffix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == map.tempest_data.suffix);
                 }
-                break;
             }
         }
 
