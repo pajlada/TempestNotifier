@@ -7,7 +7,7 @@ It then lists the tempests, showing you the **relevant** tempests at the top.
 
 1. Download the latest release .zip from [here](https://github.com/pajlada/TempestNotifier/releases/latest)
 2. Extract the .zip anywhere
-3. Run the TempestNotifier.exe file
+3. Run TempestNotifier.exe (found where you just extracted the .zip-file)
 4. You're done!
 
 ![Image](http://i.imgur.com/BqD2miP.png)
