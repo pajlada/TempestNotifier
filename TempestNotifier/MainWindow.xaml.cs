@@ -196,41 +196,47 @@ namespace TempestNotifier
                 }
             };
 
-            screenshot_application("PathOfExileSteam", "C:/tmp/test.png");
+            screenshot_application("PathOfExileSteam", exe_dir + "/tmp.png");
 
-            sharpen_image("C:/tmp/test.png", "C:/tmp/test-sharpen.png");
-            threshold_image("C:/tmp/test-sharpen.png", "C:/tmp/test-threshold.png");
+            sharpen_image(exe_dir + "/tmp.png", exe_dir + "/tmp-sharpen.png");
+            threshold_image(exe_dir + "/tmp-sharpen.png", exe_dir + "/tmp-threshold.png");
 
             List<string> texts = new List<string>();
-            texts.Add(get_text("C:/tmp/test.png"));
-            texts.Add(get_text("C:/tmp/test-sharpen.png"));
-            texts.Add(get_text("C:/tmp/test-threshold.png"));
+            string base_text = get_text(exe_dir + "/tmp.png");
+            string sharpen_text = get_text(exe_dir + "/tmp-sharpen.png");
+            string threshold_text = get_text(exe_dir + "/tmp-threshold.png");
+            texts.Add(base_text);
+            texts.Add(sharpen_text);
+            texts.Add(threshold_text);
 
-            foreach (string orig_text in texts) {
-                string text = orig_text.ToLower();
-                foreach (Map map in listview_maps.Items) {
-                    if (text.Contains(map.name.Replace('_', ' '))) {
-                        mt.map = map.name;
-                        break;
-                    }
+            /* XXX: For now, we only use threshold_text */
+            var orig_text = threshold_text;
+
+            //foreach (string orig_text in texts) {
+            string text = orig_text.ToLower();
+            foreach (Map map in listview_maps.Items) {
+                if (text.Contains(map.name.Replace('_', ' '))) {
+                    mt.map = map.name;
+                    break;
                 }
-
-                foreach (KeyValuePair<string, string> kv in tempest_affixes.prefixes) {
-                    if (text.Contains(kv.Key)) {
-                        mt.tempest.prefix = kv.Key;
-                        break;
-                    }
-                }
-
-                foreach (KeyValuePair<string, string> kv in tempest_affixes.suffixes) {
-                    if (text.Contains(kv.Key)) {
-                        mt.tempest.suffix = kv.Key;
-                        break;
-                    }
-                }
-
-                mt.tempest.name = mt.tempest.prefix + " Tempest Of " + mt.tempest.suffix;
             }
+
+            foreach (KeyValuePair<string, string> kv in tempest_affixes.prefixes) {
+                if (text.Contains(kv.Key)) {
+                    mt.tempest.prefix = kv.Key;
+                    break;
+                }
+            }
+
+            foreach (KeyValuePair<string, string> kv in tempest_affixes.suffixes) {
+                if (text.Contains(kv.Key)) {
+                    mt.tempest.suffix = kv.Key;
+                    break;
+                }
+            }
+
+            mt.tempest.name = mt.tempest.prefix + " Tempest Of " + mt.tempest.suffix;
+            //}
 
             return mt;
         }
