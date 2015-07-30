@@ -7,16 +7,16 @@
         x:Class="TempestNotifier.MainWindow"
         xmlns:tn="clr-namespace:TempestNotifier"
         mc:Ignorable="d"
-        Title="Tempest Notifier v0.4.2" Height="417" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
+        Title="Tempest Notifier v0.5.0-alpha" Height="450" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
     <Window.Resources>
         <tn:MapFormatConverter x:Key="MapFormatConverter" />
         <tn:CanUpvote x:Key="CanUpvote" />
     </Window.Resources>
     <Grid Margin="0">
-        <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="80" Click="button_Click_1" Height="23" VerticalAlignment="Bottom" FontSize="13.333"/>
-        <Button x:Name="btn_vote" Content="Vote" HorizontalAlignment="Left" Margin="95,0,0,10" VerticalAlignment="Bottom" Width="80" FontSize="13.333" Click="btn_vote_Click" IsEnabled="False" Height="23"/>
-        <Label x:Name="lbl_last_update" Margin="180,0,10,0" FontSize="16" VerticalAlignment="Bottom" Height="37"/>
-        <ListView x:Name="listview_maps" Margin="10,10,10,100" FontSize="13.333" Grid.ColumnSpan="2" SelectionChanged="listview_maps_SelectionChanged" SelectionMode="Single" SizeChanged="listview_maps_SizeChanged">
+        <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,38" Width="80" Click="button_Click_1" Height="23" VerticalAlignment="Bottom" FontSize="13.333"/>
+        <Button x:Name="btn_vote" Content="Vote" HorizontalAlignment="Left" Margin="95,0,0,38" VerticalAlignment="Bottom" Width="80" FontSize="13.333" Click="btn_vote_Click" IsEnabled="False" Height="23"/>
+        <Label x:Name="lbl_last_update" Margin="180,0,10,27" FontSize="16" VerticalAlignment="Bottom" Height="37"/>
+        <ListView x:Name="listview_maps" Margin="10,10,10,125" FontSize="13.333" SelectionChanged="listview_maps_SelectionChanged" SelectionMode="Single" SizeChanged="listview_maps_SizeChanged">
             <ListView.Resources>
                 <Style TargetType="{x:Type ListViewItem}">
                     <Style.Resources>
@@ -75,9 +75,11 @@
                 </GridView>
             </ListView.View>
         </ListView>
-        <ComboBox x:Name="cb_prefix" Margin="63,0,10,69" Grid.ColumnSpan="2" Height="21" VerticalAlignment="Bottom" IsEditable="True" IsEnabled="False"/>
-        <Label x:Name="lbl_prefix" Content="Prefix:" HorizontalAlignment="Left" Margin="10,0,0,69" VerticalAlignment="Bottom" FontSize="13.333" Height="26" Width="48"/>
-        <Label x:Name="lvl_suffix" Content="Suffix:" HorizontalAlignment="Left" Margin="10,0,0,38" FontSize="13.333" RenderTransformOrigin="1.5,0.846" Height="26" VerticalAlignment="Bottom" Width="48"/>
-        <ComboBox x:Name="cb_suffix" Margin="63,0,10,42" IsEditable="True" Height="19" VerticalAlignment="Bottom" Grid.ColumnSpan="2" IsEnabled="False"/>
+        <ComboBox x:Name="cb_prefix" Margin="63,0,10,94" Height="21" VerticalAlignment="Bottom" IsEditable="True" IsEnabled="False"/>
+        <Label x:Name="lbl_prefix" Content="Prefix:" HorizontalAlignment="Left" Margin="10,0,0,94" VerticalAlignment="Bottom" FontSize="13.333" Height="26" Width="48"/>
+        <Label x:Name="lvl_suffix" Content="Suffix:" HorizontalAlignment="Left" Margin="10,0,0,63" FontSize="13.333" RenderTransformOrigin="1.5,0.846" Height="26" VerticalAlignment="Bottom" Width="48"/>
+        <ComboBox x:Name="cb_suffix" Margin="63,0,10,67" IsEditable="True" Height="19" VerticalAlignment="Bottom" IsEnabled="False"/>
+        <Button x:Name="btn_hard_refresh_Copy" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="80" Height="23" VerticalAlignment="Bottom" FontSize="13.333" RenderTransformOrigin="-0.275,-3.13" Visibility="Hidden"/>
+        <Label x:Name="lbl_report" Margin="95,0,10,0" FontSize="12" VerticalAlignment="Bottom" Height="27"/>
     </Grid>
 </Window>

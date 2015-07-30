@@ -196,80 +196,152 @@ namespace TempestNotifier
                 }
             };
 
-            screenshot_application("PathOfExileSteam", exe_dir + "/tmp.png");
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Screenshoting Path of Exile...";
+            }));
+            try {
+                screenshot_application("PathOfExileSteam", exe_dir + "/tmp.png");
+            } catch (Exception) {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    lbl_report.Content = "Something went wrong while screenshotting";
+                }));
+                return mt;
+            }
 
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Sharpening...";
+            }));
             sharpen_image(exe_dir + "/tmp.png", exe_dir + "/tmp-sharpen.png");
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Monochroming...";
+            }));
             threshold_image(exe_dir + "/tmp-sharpen.png", exe_dir + "/tmp-threshold.png");
 
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Blurring...";
+            }));
+            blur_image(exe_dir + "/tmp-sharpen.png", exe_dir + "/tmp-blur.png", 0.05, 0.2);
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Scaling...";
+            }));
+            scale_image(exe_dir + "/tmp-blur.png", exe_dir + "/tmp-scaled.png");
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Monochroming again...";
+            }));
+            threshold_image(exe_dir + "/tmp-scaled.png", exe_dir + "/tmp-threshold2.png", 15, 15, 2);
+
             List<string> texts = new List<string>();
-            string base_text = get_text(exe_dir + "/tmp.png");
-            string sharpen_text = get_text(exe_dir + "/tmp-sharpen.png");
-            string threshold_text = get_text(exe_dir + "/tmp-threshold.png");
-            texts.Add(base_text);
-            texts.Add(sharpen_text);
-            texts.Add(threshold_text);
 
-            /* XXX: For now, we only use threshold_text */
-            var orig_text = threshold_text;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Reading default image...";
+            }));
+            texts.Add(get_text(exe_dir + "/tmp.png"));
 
-            //foreach (string orig_text in texts) {
-            string text = orig_text.ToLower();
-            foreach (Map map in listview_maps.Items) {
-                if (text.Contains(map.name.Replace('_', ' '))) {
-                    mt.map = map.name;
-                    break;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Reading sharpened image...";
+            }));
+            texts.Add(get_text(exe_dir + "/tmp-sharpen.png"));
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Reading monochrome image #1...";
+            }));
+            texts.Add(get_text(exe_dir + "/tmp-threshold.png"));
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Reading monochrome image #2...";
+            }));
+            texts.Add(get_text(exe_dir + "/tmp-threshold2.png"));
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Reading blurred image...";
+            }));
+            texts.Add(get_text(exe_dir + "/tmp-blur.png"));
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Begin loop...";
+            }));
+            foreach (string orig_text in texts) {
+                Console.WriteLine(orig_text);
+                string text = orig_text.ToLower();
+                foreach (Map map in listview_maps.Items) {
+                    if (text.Contains(map.name.Replace('_', ' '))) {
+                        mt.map = map.name;
+                        break;
+                    }
                 }
+
+                foreach (KeyValuePair<string, string> kv in tempest_affixes.prefixes) {
+                    if (text.Contains(kv.Key)) {
+                        mt.tempest.prefix = kv.Key;
+                        break;
+                    }
+                }
+
+                foreach (KeyValuePair<string, string> kv in tempest_affixes.suffixes) {
+                    if (text.Contains(kv.Key)) {
+                        mt.tempest.suffix = kv.Key;
+                        break;
+                    }
+                }
+
+                mt.tempest.name = mt.tempest.prefix + " Tempest Of " + mt.tempest.suffix;
             }
 
-            foreach (KeyValuePair<string, string> kv in tempest_affixes.prefixes) {
-                if (text.Contains(kv.Key)) {
-                    mt.tempest.prefix = kv.Key;
-                    break;
-                }
-            }
-
-            foreach (KeyValuePair<string, string> kv in tempest_affixes.suffixes) {
-                if (text.Contains(kv.Key)) {
-                    mt.tempest.suffix = kv.Key;
-                    break;
-                }
-            }
-
-            mt.tempest.name = mt.tempest.prefix + " Tempest Of " + mt.tempest.suffix;
-            //}
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lbl_report.Content = "Done looping!";
+            }));
 
             return mt;
         }
 
-        public void sharpen_image(string image_path, string output_path)
+        public void sharpen_image(string image_path, string output_path, double radius = 5, double sigma = 30)
         {
             using (MagickImage image = new MagickImage(image_path)) {
-                //image.Blur();
-                image.Sharpen(5, 30);
-                //image.AdaptiveThreshold(image.Width, image.Height, 5);
+                image.Sharpen(radius, sigma);
                 image.Write(output_path);
             }
         }
 
-        public void threshold_image(string image_path, string output_path)
+        public void blur_image(string image_path, string output_path, double width = 2, double sigma = 2)
         {
             using (MagickImage image = new MagickImage(image_path)) {
-                //image.Threshold(new Percentage(0.02));
-                //image.Threshold(new Percentage(1));
-                //image.BlackThreshold(new Percentage(0.02));
+                image.GaussianBlur(width, sigma);
+                image.Write(output_path);
+            }
+        }
 
-                //image.Threshold(new Percentage(0.5));
-
-                image.BrightnessContrast(20, 20);
+        public void threshold_image(string image_path, string output_path, int brightness = 20, int contrast = 20, int posterize = 2)
+        {
+            using (MagickImage image = new MagickImage(image_path)) {
+                image.BrightnessContrast(brightness, contrast);
                 image.ColorSpace = ColorSpace.Gray;
-                image.Posterize(2);
+                image.Posterize(posterize);
                 image.Normalize();
-                //image.Level();
-                //image.WhiteThreshold(new Percentage(0.05));
-                //image.BlackThreshold(new Percentage(0.05));
-                //image.ColorSpace = ColorSpace.Gray;
-                //image.AdaptiveThreshold(image.Width, image.Height, 10);
-                //image.Sharpen(5, 5);
+                image.Write(output_path);
+            }
+        }
+
+        public void scale_image(string image_path, string output_path)
+        {
+            using (MagickImage image = new MagickImage(image_path)) {
+                image.Scale(image.Width * 2.5, image.Height * 1.5);
                 image.Write(output_path);
             }
         }
@@ -285,9 +357,9 @@ namespace TempestNotifier
 
             double ratio = (double)width / (double)height;
 
-            int left_offset = (int)(width * 0.88);
+            int left_offset = (int)(width * 0.85);
             //int top_offset = (int)(height * 0.175);
-            int top_offset = (int)(height * 0.045);
+            int top_offset = 0;
 
             width -= left_offset;
             height = (int)(height * 0.5);
@@ -339,19 +411,39 @@ namespace TempestNotifier
 
             {
                 var hotkey = new HotKey(ModifierKeys.Shift, Keys.F9, this);
-                hotkey.HotKeyPressed += async (k) =>
+                hotkey.HotKeyPressed += (k) =>
                 {
-                    MapTempest mt = get_map_tempest();
-                    Console.WriteLine(String.Format("Map name: {0}", mt.map));
-                    Console.WriteLine(String.Format("Tempest name: {0}", mt.tempest.name));
+                    Task.Factory.StartNew(() =>
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            lbl_report.Content = "Beginning to report current map tempest...";
+                        }));
+                        MapTempest mt = get_map_tempest();
+                        Console.WriteLine(String.Format("Map name: {0}", mt.map));
+                        Console.WriteLine(String.Format("Tempest name: {0}", mt.tempest.name));
 
-                    if (mt.map != "???") {
-                        bool res = await vote(mt.map, mt.tempest.prefix, mt.tempest.suffix);
-                        if (res) {
-                            Console.WriteLine("Successfully sent tempest data!");
-                            await update_tempests();
+                        if (mt.map != "???" && (mt.tempest.prefix != "none" || mt.tempest.suffix == "none")) {
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                lbl_report.Content = "Reporting " + mt.map + ", " + mt.tempest.prefix + " tempest of " + mt.tempest.suffix;
+                            }));
+                            bool res = vote(mt.map, mt.tempest.prefix, mt.tempest.suffix).Result;
+                            if (res) {
+                                Console.WriteLine("Successfully sent tempest data!");
+                                Dispatcher.BeginInvoke(new Action(() =>
+                                {
+                                    lbl_report.Content = "Reported " + mt.map + ", " + mt.tempest.prefix + " tempest of " + mt.tempest.suffix;
+                                }));
+                                update_tempests();
+                            } else {
+                                Dispatcher.BeginInvoke(new Action(() =>
+                                {
+                                    lbl_report.Content = "Error reporting " + mt.map + ", " + mt.tempest.prefix + " tempest of " + mt.tempest.suffix;
+                                }));
+                            }
                         }
-                    }
+                    });
                 };
             }
 
@@ -364,7 +456,7 @@ namespace TempestNotifier
 #endif
 
             try {
-                tesseract = new TesseractEngine(tessdata_dir, "eng", EngineMode.Default);
+                tesseract = new TesseractEngine(tessdata_dir, "eng", EngineMode.TesseractAndCube);
             } catch (Exception e) {
                 Trace.TraceError(e.ToString());
                 Console.WriteLine("Unexpected Error: " + e.Message);
