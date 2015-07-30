@@ -22,6 +22,11 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Threading;
 using System.Windows.Markup;
+using Tesseract;
+using System.Runtime.InteropServices;
+using System.Drawing;
+using ImageMagick;
+using System.IO;
 
 namespace TempestNotifier
 {
@@ -46,7 +51,7 @@ namespace TempestNotifier
         public Dictionary<string, string> suffixes { get; set; }
     }
 
-    class Tempest
+    public class Tempest
     {
         public string name { get; set; }
 
@@ -78,6 +83,13 @@ namespace TempestNotifier
         public string short_description { get; set; }
 
         public bool good { get; set; }
+    }
+
+    public class MapTempest
+    {
+        public string map { get; set; }
+
+        public Tempest tempest { get; set; }
     }
 
     public abstract class BaseConverter : MarkupExtension
@@ -127,12 +139,161 @@ namespace TempestNotifier
         }
     }
 
+    public class User32
+    {
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Rect
+        {
+            public int left;
+            public int top;
+            public int right;
+            public int bottom;
+        }
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetWindowRect(IntPtr hWnd, ref Rect rect);
+    }
+
     public partial class MainWindow : Window
     {
         System.Timers.Timer timer;
         Dictionary<String, TempestDescription> relevant_tempests;
         Dictionary<string, int> map_levels;
         TempestAffixes tempest_affixes;
+        TesseractEngine tesseract;
+        string exe_dir;
+
+        public string get_text(string image_path)
+        {
+            try {
+                using (var img = Pix.LoadFromFile(image_path)) {
+                    using (var page = tesseract.Process(img)) {
+                        var text = page.GetText();
+                        return text;
+                    }
+                }
+            } catch (Exception e) {
+                Trace.TraceError(e.ToString());
+                Console.WriteLine("Unexpected Error: " + e.Message);
+                Console.WriteLine("Details: ");
+                Console.WriteLine(e.ToString());
+            }
+
+            return "";
+        }
+
+        public MapTempest get_map_tempest()
+        {
+            MapTempest mt = new MapTempest
+            {
+                map = "???",
+                tempest = new Tempest
+                {
+                    name = "???",
+                    prefix = "none",
+                    suffix = "none",
+                    votes = 0
+                }
+            };
+
+            screenshot_application("PathOfExileSteam", "C:/tmp/test.png");
+
+            sharpen_image("C:/tmp/test.png", "C:/tmp/test-sharpen.png");
+            threshold_image("C:/tmp/test-sharpen.png", "C:/tmp/test-threshold.png");
+
+            List<string> texts = new List<string>();
+            texts.Add(get_text("C:/tmp/test.png"));
+            texts.Add(get_text("C:/tmp/test-sharpen.png"));
+            texts.Add(get_text("C:/tmp/test-threshold.png"));
+
+            foreach (string orig_text in texts) {
+                string text = orig_text.ToLower();
+                foreach (Map map in listview_maps.Items) {
+                    if (text.Contains(map.name.Replace('_', ' '))) {
+                        mt.map = map.name;
+                        break;
+                    }
+                }
+
+                foreach (KeyValuePair<string, string> kv in tempest_affixes.prefixes) {
+                    if (text.Contains(kv.Key)) {
+                        mt.tempest.prefix = kv.Key;
+                        break;
+                    }
+                }
+
+                foreach (KeyValuePair<string, string> kv in tempest_affixes.suffixes) {
+                    if (text.Contains(kv.Key)) {
+                        mt.tempest.suffix = kv.Key;
+                        break;
+                    }
+                }
+
+                mt.tempest.name = mt.tempest.prefix + " Tempest Of " + mt.tempest.suffix;
+            }
+
+            return mt;
+        }
+
+        public void sharpen_image(string image_path, string output_path)
+        {
+            using (MagickImage image = new MagickImage(image_path)) {
+                //image.Blur();
+                image.Sharpen(5, 30);
+                //image.AdaptiveThreshold(image.Width, image.Height, 5);
+                image.Write(output_path);
+            }
+        }
+
+        public void threshold_image(string image_path, string output_path)
+        {
+            using (MagickImage image = new MagickImage(image_path)) {
+                //image.Threshold(new Percentage(0.02));
+                //image.Threshold(new Percentage(1));
+                //image.BlackThreshold(new Percentage(0.02));
+
+                //image.Threshold(new Percentage(0.5));
+
+                image.BrightnessContrast(20, 20);
+                image.ColorSpace = ColorSpace.Gray;
+                image.Posterize(2);
+                image.Normalize();
+                //image.Level();
+                //image.WhiteThreshold(new Percentage(0.05));
+                //image.BlackThreshold(new Percentage(0.05));
+                //image.ColorSpace = ColorSpace.Gray;
+                //image.AdaptiveThreshold(image.Width, image.Height, 10);
+                //image.Sharpen(5, 5);
+                image.Write(output_path);
+            }
+        }
+
+        public void screenshot_application(string procName, string output_path)
+        {
+            var proc = Process.GetProcessesByName(procName)[0];
+            var rect = new User32.Rect();
+            User32.GetWindowRect(proc.MainWindowHandle, ref rect);
+
+            int width = rect.right - rect.left;
+            int height = rect.bottom - rect.top;
+
+            double ratio = (double)width / (double)height;
+
+            int left_offset = (int)(width * 0.88);
+            //int top_offset = (int)(height * 0.175);
+            int top_offset = (int)(height * 0.045);
+
+            width -= left_offset;
+            height = (int)(height * 0.5);
+
+            //width -= left_offset;
+
+            var bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            Graphics graphics = Graphics.FromImage(bmp);
+            graphics.CopyFromScreen(rect.left + left_offset, rect.top + top_offset, 0, 0, new System.Drawing.Size(width, height), CopyPixelOperation.SourceCopy);
+
+            bmp.Save(output_path, System.Drawing.Imaging.ImageFormat.Png);
+        }
 
         public MainWindow()
         {
@@ -169,6 +330,41 @@ namespace TempestNotifier
             listview_maps.Items.SortDescriptions.Add(new SortDescription("name", ListSortDirection.Ascending));
 
             this.cb_prefix.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler(this.cb_prefix_TextChanged));
+
+            {
+                var hotkey = new HotKey(ModifierKeys.Shift, Keys.F9, this);
+                hotkey.HotKeyPressed += async (k) =>
+                {
+                    MapTempest mt = get_map_tempest();
+                    Console.WriteLine(String.Format("Map name: {0}", mt.map));
+                    Console.WriteLine(String.Format("Tempest name: {0}", mt.tempest.name));
+
+                    if (mt.map != "???") {
+                        bool res = await vote(mt.map, mt.tempest.prefix, mt.tempest.suffix);
+                        if (res) {
+                            Console.WriteLine("Successfully sent tempest data!");
+                            await update_tempests();
+                        }
+                    }
+                };
+            }
+
+            exe_dir = (new FileInfo(System.Reflection.Assembly.GetEntryAssembly().Location)).Directory.FullName;
+
+#if DEBUG
+            string tessdata_dir = exe_dir + "/../Release/tessdata/";
+#else
+            string tessdata_dir = exe_dir + "/tessdata/";
+#endif
+
+            try {
+                tesseract = new TesseractEngine(tessdata_dir, "eng", EngineMode.Default);
+            } catch (Exception e) {
+                Trace.TraceError(e.ToString());
+                Console.WriteLine("Unexpected Error: " + e.Message);
+                Console.WriteLine("Details: ");
+                Console.WriteLine(e.ToString());
+            }
         }
 
         private async void initialize_data()
@@ -325,6 +521,7 @@ namespace TempestNotifier
         private async Task<bool> vote(string map, string prefix, string suffix)
         {
             using (var client = new HttpClient()) {
+                client.Timeout = new TimeSpan(0, 0, 2);
                 client.BaseAddress = new Uri("http://poetempest.com/api/v1/");
                 var content = new FormUrlEncodedContent(new[]
                 {
@@ -360,7 +557,7 @@ namespace TempestNotifier
         {
             Map map = ((FrameworkElement)sender).DataContext as Map;
             if (map != null) {
-                bool result = vote(map.name, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower()).Result;
+                bool result = await vote(map.name, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
                 if (result) {
                     Console.WriteLine("Successfully voted!");
                     await update_tempests();
