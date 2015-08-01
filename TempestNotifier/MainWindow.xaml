@@ -79,7 +79,7 @@
         <Label x:Name="lbl_prefix" Content="Prefix:" HorizontalAlignment="Left" Margin="10,0,0,94" VerticalAlignment="Bottom" FontSize="13.333" Height="26" Width="48"/>
         <Label x:Name="lvl_suffix" Content="Suffix:" HorizontalAlignment="Left" Margin="10,0,0,63" FontSize="13.333" RenderTransformOrigin="1.5,0.846" Height="26" VerticalAlignment="Bottom" Width="48"/>
         <ComboBox x:Name="cb_suffix" Margin="63,0,10,67" IsEditable="True" Height="19" VerticalAlignment="Bottom" IsEnabled="False"/>
-        <Button x:Name="btn_hard_refresh_Copy" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,10" Width="80" Height="23" VerticalAlignment="Bottom" FontSize="13.333" RenderTransformOrigin="-0.275,-3.13" Visibility="Hidden"/>
-        <Label x:Name="lbl_report" Margin="95,0,10,0" FontSize="12" VerticalAlignment="Bottom" Height="27"/>
+        <Button x:Name="btn_report" Content="Report >" HorizontalAlignment="Left" Margin="10,0,0,10" Width="80" Height="23" VerticalAlignment="Bottom" FontSize="13.333" RenderTransformOrigin="-0.275,-3.13" Click="btn_report_Click" IsEnabled="False"/>
+        <Label x:Name="lbl_report" Margin="95,0,10,7" FontSize="12" VerticalAlignment="Bottom" Height="27" Content=""/>
     </Grid>
 </Window>
