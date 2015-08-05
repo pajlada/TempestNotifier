@@ -6,12 +6,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Newtonsoft.Json;
@@ -155,16 +149,6 @@ namespace TempestNotifier
         public static extern IntPtr GetWindowRect(IntPtr hWnd, ref Rect rect);
     }
 
-    public class CropData
-    {
-        public int width { get; set; }
-        public int height { get; set; }
-        public Tuple<int, int> map_crop_from;
-        public Tuple<int, int> map_crop_to;
-        public Tuple<int, int> tempest_crop_from;
-        public Tuple<int, int> tempest_crop_to;
-    }
-
     public partial class MainWindow : Window
     {
         System.Timers.Timer timer;
@@ -194,60 +178,6 @@ namespace TempestNotifier
             return "";
         }
 
-        /* Returns file paths of images that are relevant to read */
-        public List<KeyValuePair<string, string>> apply_filters(string from_path, string to_path_format, string key = "")
-        {
-            string sharpen_path = String.Format(to_path_format, "sharpen");
-            string threshold_path = String.Format(to_path_format, "threshold");
-            string blur_path = String.Format(to_path_format, "blur");
-            string scaled_path = String.Format(to_path_format, "scaled");
-            string threshold2_path = String.Format(to_path_format, "threshold2");
-            string scaled2_path = String.Format(to_path_format, "scaled2");
-            string threshold3_path = String.Format(to_path_format, "threshold3");
-            string scaled3_path = String.Format(to_path_format, "scaled3");
-            string threshold4_path = String.Format(to_path_format, "threshold4");
-
-            update_label_d(lbl_report, "Sharpening {0}", key);
-            sharpen_image(from_path, sharpen_path);
-
-            update_label_d(lbl_report, "Monochroming {0} #1", key);
-            threshold_image(sharpen_path, threshold_path);
-
-            update_label_d(lbl_report, "Blurring {0}", key);
-            blur_image(sharpen_path, blur_path, 0.05, 0.2);
-
-            update_label_d(lbl_report, "Scaling {0} #1", key);
-            scale_image(blur_path, scaled_path, 150, 150);
-
-            update_label_d(lbl_report, "Monochroming {0} #2", key);
-            threshold_image(scaled_path, threshold2_path, 15, 15, 2);
-
-            update_label_d(lbl_report, "Scaling {0} #2", key);
-            scale_image(blur_path, scaled2_path, 75, 100);
-
-            update_label_d(lbl_report, "Monochroming {0} #3", key);
-            threshold_image(scaled2_path, threshold3_path, 15, 15, 2);
-
-            update_label_d(lbl_report, "Scaling {0} #3", key);
-            scale_image(blur_path, scaled3_path, 150, 125);
-
-            update_label_d(lbl_report, "Monochroming {0} #4", key);
-            threshold_image(scaled3_path, threshold4_path, 15, 15, 2);
-
-            return new List<KeyValuePair<string, string>>
-            {
-                new KeyValuePair<string, string>("Sharpen", sharpen_path),
-                new KeyValuePair<string, string>("Threshold", threshold_path),
-                new KeyValuePair<string, string>("Blurred", blur_path),
-                new KeyValuePair<string, string>("Scaled", scaled_path),
-                new KeyValuePair<string, string>("Threshold2", threshold2_path),
-                new KeyValuePair<string, string>("Scaled2", scaled2_path),
-                new KeyValuePair<string, string>("Threshold3", threshold3_path),
-                new KeyValuePair<string, string>("Scaled3", scaled3_path),
-                new KeyValuePair<string, string>("Threshold4", threshold4_path),
-            };
-        }
-
         public void update_label(Label lbl, string format, params object[] values)
         {
             lbl.Content = String.Format(format, values);
@@ -261,9 +191,119 @@ namespace TempestNotifier
             }));
         }
 
-        public MapTempest get_map_tempest()
+        public void begin_watching_screenshot_folder()
         {
-            MapTempest mt = new MapTempest
+            string my_documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string poe_subdir = "My Games\\Path of Exile\\Screenshots";
+            string path;
+            try {
+                path = System.IO.Path.Combine(my_documents, poe_subdir);
+            } catch (Exception e) {
+                Console.WriteLine("Error combining {0} and {1} because {2}{3}",
+                    poe_subdir, my_documents, Environment.NewLine, e.Message);
+                Console.ReadKey();
+                return;
+            }
+
+            FileSystemWatcher watcher = new FileSystemWatcher();
+            watcher.Path = path;
+            watcher.NotifyFilter = NotifyFilters.LastWrite;
+            watcher.Filter = "*.*";
+            watcher.Changed += new FileSystemEventHandler(on_new_screenshot);
+            watcher.EnableRaisingEvents = true;
+            Console.WriteLine("Waiting for new screenshots in:\n{0}", path);
+        }
+
+        public void on_new_screenshot(object sender, FileSystemEventArgs e)
+        {
+            Task.Factory.StartNew(() =>
+            {
+                string map_path, tempest_path;
+                string map_format_path, tempest_format_path;
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    lbl_report.Content = "New screenshot read...";
+                    btn_report.IsEnabled = false;
+                    found_mt = null;
+                }));
+
+                Bitmap img = new Bitmap(e.FullPath);
+                var img_width = img.Width;
+                var img_height = img.Height;
+
+                var crop_data = new OCR.CropData
+                {
+                    map_from = new Tuple<int, int>((int)(img_width * 0.85), 0),
+                    map_to = new Tuple<int, int>(img_width, (int)(img_height * 0.15)),
+                    tempest_from = new Tuple<int, int>((int)(img_width * 0.85), (int)(img_height * 0.10)),
+                    tempest_to = new Tuple<int, int>(img_width, (int)(img_height * 0.45)),
+                };
+
+                foreach (var cd in OCR.CropData.resolutions) {
+                    if (img_width == cd.Key.Item1 && img_height == cd.Key.Item2) {
+                        crop_data = cd.Value;
+                        break;
+                    }
+                }
+
+                try {
+                    map_path = Path.Combine(exe_dir, "map.png");
+                    tempest_path = Path.Combine(exe_dir, "tempest.png");
+                    map_format_path = Path.Combine(exe_dir, "map-{0}.png");
+                    tempest_format_path = Path.Combine(exe_dir, "tempest-{0}.png");
+                } catch (Exception ex) {
+                    Console.WriteLine("Something went wrong while combining paths. {0}", ex.Message);
+                    return;
+                }
+
+                update_label_d(lbl_report, "Cropping images");
+                OCR.Image.crop(e.FullPath, map_path, crop_data.map_from, crop_data.map_to);
+                OCR.Image.crop(e.FullPath, tempest_path, crop_data.tempest_from, crop_data.tempest_to);
+
+                update_label_d(lbl_report, "Applying filters to images");
+                var map_images = OCR.Image.apply_filters(map_path, map_format_path);
+                var tempest_images = OCR.Image.apply_filters(tempest_path, tempest_format_path);
+
+                MapTempest mt = get_map_tempest(map_images, tempest_images);
+                Console.WriteLine(String.Format("Map name: {0}", mt.map));
+                Console.WriteLine(String.Format("Tempest name: {0}", mt.tempest.name));
+                bool do_vote = false;
+
+                if (do_vote && mt.map != "???" && (mt.tempest.prefix != "none" || mt.tempest.suffix == "none")) {
+                    update_label_d(lbl_report, "Reporting {0}, {1} tempest of {2}", mt.map, mt.tempest.prefix, mt.tempest.suffix);
+                    bool res = vote(mt.map, mt.tempest.prefix, mt.tempest.suffix).Result;
+                    if (res) {
+                        Console.WriteLine("Successfully sent tempest data!");
+                        update_label_d(lbl_report, "Reported {0}, {1} tempest of {2}", mt.map, mt.tempest.prefix, mt.tempest.suffix);
+                        update_tempests();
+                    } else {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            lbl_report.Content = "Error reporting " + mt.map + ", " + mt.tempest.prefix + " tempest of " + mt.tempest.suffix;
+                        }));
+                    }
+                } else {
+                    update_label_d(lbl_report, "NOT reporting " + mt.map + ", " + mt.tempest.prefix + " tempest of " + mt.tempest.suffix);
+                    found_mt = mt;
+                    if (mt.map != "???" && (mt.tempest.prefix != "none" || mt.tempest.suffix == "none")) {
+                        found_mt = null;
+                    }
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (found_mt != null) {
+                            btn_report.IsEnabled = false;
+                        } else {
+                            btn_report.IsEnabled = true;
+                        }
+                    }));
+                }
+            });
+        }
+
+        public MapTempest get_map_tempest(List<KeyValuePair<string, string>> map_images, List<KeyValuePair<string, string>> tempest_images)
+        {
+            var mt = new MapTempest
             {
                 map = "???",
                 tempest = new Tempest
@@ -274,70 +314,6 @@ namespace TempestNotifier
                     votes = 0
                 }
             };
-
-            update_label_d(lbl_report, "Screenshotting Path of Exile");
-            int width, height;
-            width = 2560;
-            height = 1440;
-            try {
-                screenshot_application("PathOfExileSteam", exe_dir + "/full.png", out width, out height);
-            } catch (Exception) {
-                update_label_d(lbl_report, "Something went wrong while screenshotting");
-                return mt;
-            }
-
-            CropData crop_data = new CropData
-            {
-                width = width,
-                height = height,
-                map_crop_from = new Tuple<int, int>(1730, 40),
-                map_crop_to = new Tuple<int, int>(1910, 65),
-                tempest_crop_from = new Tuple<int, int>(1560, 185),
-                tempest_crop_to = new Tuple<int, int>(1920, 206),
-            };
-
-            crop_data.map_crop_from = new Tuple<int, int>((int)(width * 0.85), 0);
-            crop_data.map_crop_to = new Tuple<int, int>(width, (int)(height * 0.15));
-            crop_data.tempest_crop_from = new Tuple<int, int>((int)(width * 0.85), (int)(height * 0.10));
-            crop_data.tempest_crop_to = new Tuple<int, int>(width, (int)(height * 0.45));
-
-            List<CropData> preset_crop_datas = new List<CropData>
-            {
-                new CropData {
-                    width = 1920,
-                    height = 1080,
-                    map_crop_from = new Tuple<int, int>(1730, 40),
-                    map_crop_to = new Tuple<int, int>(1910, 65),
-                    tempest_crop_from = new Tuple<int, int>(1560, 185),
-                    tempest_crop_to = new Tuple<int, int>(1920, 206),
-                },
-                new CropData {
-                    width = 2560,
-                    height = 1440,
-                    map_crop_from = new Tuple<int, int>(2300, 58),
-                    map_crop_to = new Tuple<int, int>(2545, 88),
-                    tempest_crop_from = new Tuple<int, int>(2056, 256),
-                    tempest_crop_to = new Tuple<int, int>(2560, 283),
-                },
-            };
-
-            foreach (var cd in preset_crop_datas) {
-                if (width == cd.width && height == cd.height) {
-                    crop_data = cd;
-                    break;
-                }
-            }
-
-            /* Crop the full screenshot into map.png and tempest.png */
-
-            update_label_d(lbl_report, "Cropping map");
-            crop_image(exe_dir + "/full.png", exe_dir + "/map.png", crop_data.map_crop_from, crop_data.map_crop_to);
-
-            update_label_d(lbl_report, "Cropping tempest");
-            crop_image(exe_dir + "/full.png", exe_dir + "/tempest.png", crop_data.tempest_crop_from, crop_data.tempest_crop_to);
-
-            List<KeyValuePair<string, string>> map_images = apply_filters(exe_dir + "/map.png", exe_dir + "/map-{0}.png", "map");
-            List<KeyValuePair<string, string>> tempest_images = apply_filters(exe_dir + "/tempest.png", exe_dir + "/tempest-{0}.png", "tempest");
 
             foreach (KeyValuePair<string, string> kv in map_images) {
                 if (mt.map != "???") {
@@ -450,68 +426,6 @@ namespace TempestNotifier
             return mt;
         }
 
-        public void crop_image(string image_path, string output_path, Tuple<int, int> from, Tuple<int, int> to)
-        {
-            using (MagickImage image = new MagickImage(image_path)) {
-                image.Crop(new MagickGeometry(from.Item1, from.Item2, to.Item1 - from.Item1, to.Item2 - from.Item2));
-                image.Write(output_path);
-            }
-        }
-
-        public void sharpen_image(string image_path, string output_path, double radius = 5, double sigma = 30)
-        {
-            using (MagickImage image = new MagickImage(image_path)) {
-                image.Sharpen(radius, sigma);
-                image.Write(output_path);
-            }
-        }
-
-        public void blur_image(string image_path, string output_path, double width = 2, double sigma = 2)
-        {
-            using (MagickImage image = new MagickImage(image_path)) {
-                image.GaussianBlur(width, sigma);
-                image.Write(output_path);
-            }
-        }
-
-        public void threshold_image(string image_path, string output_path, int brightness = 20, int contrast = 20, int posterize = 2)
-        {
-            using (MagickImage image = new MagickImage(image_path)) {
-                image.BrightnessContrast(brightness, contrast);
-                image.ColorSpace = ColorSpace.Gray;
-                image.Posterize(posterize);
-                image.Normalize();
-                image.Write(output_path);
-            }
-        }
-
-        public void scale_image(string image_path, string output_path, int width_mul = 150, int height_mul = 150)
-        {
-            using (MagickImage image = new MagickImage(image_path)) {
-                image.Scale(new Percentage(width_mul), new Percentage(height_mul));
-                image.Write(output_path);
-            }
-        }
-
-        public void screenshot_application(string procName, string output_path, out int window_width, out int window_height)
-        {
-            var proc = Process.GetProcessesByName(procName)[0];
-            var rect = new User32.Rect();
-            User32.GetWindowRect(proc.MainWindowHandle, ref rect);
-
-            int width = rect.right - rect.left;
-            int height = rect.bottom - rect.top;
-
-            window_width = width;
-            window_height = height;
-
-            var bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            Graphics graphics = Graphics.FromImage(bmp);
-            graphics.CopyFromScreen(rect.left, rect.top, 0, 0, new System.Drawing.Size(width, height), CopyPixelOperation.SourceCopy);
-
-            bmp.Save(output_path, System.Drawing.Imaging.ImageFormat.Png);
-        }
-
         public MainWindow()
         {
             InitializeComponent();
@@ -547,58 +461,6 @@ namespace TempestNotifier
             listview_maps.Items.SortDescriptions.Add(new SortDescription("name", ListSortDirection.Ascending));
 
             this.cb_prefix.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler(this.cb_prefix_TextChanged));
-
-            {
-                var hotkey = new HotKey(ModifierKeys.Shift, Keys.F9, this);
-                hotkey.HotKeyPressed += (k) =>
-                {
-                    Task.Factory.StartNew(() =>
-                    {
-                        Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            lbl_report.Content = "Beginning to report current map tempest...";
-                            btn_report.IsEnabled = false;
-                            found_mt = null;
-                        }));
-                        MapTempest mt = get_map_tempest();
-                        Console.WriteLine(String.Format("Map name: {0}", mt.map));
-                        Console.WriteLine(String.Format("Tempest name: {0}", mt.tempest.name));
-                        bool do_vote = false;
-
-                        if (do_vote && mt.map != "???" && (mt.tempest.prefix != "none" || mt.tempest.suffix == "none")) {
-                            update_label_d(lbl_report, "Reporting {0}, {1} tempest of {2}", mt.map, mt.tempest.prefix, mt.tempest.suffix);
-                            bool res = vote(mt.map, mt.tempest.prefix, mt.tempest.suffix).Result;
-                            if (res) {
-                                Console.WriteLine("Successfully sent tempest data!");
-                                update_label_d(lbl_report, "Reported {0}, {1} tempest of {2}", mt.map, mt.tempest.prefix, mt.tempest.suffix);
-                                update_tempests();
-                            } else {
-                                Dispatcher.BeginInvoke(new Action(() =>
-                                {
-                                    lbl_report.Content = "Error reporting " + mt.map + ", " + mt.tempest.prefix + " tempest of " + mt.tempest.suffix;
-                                }));
-                            }
-                        } else {
-                            Dispatcher.BeginInvoke(new Action(() =>
-                            {
-                                lbl_report.Content = "NOT reporting " + mt.map + ", " + mt.tempest.prefix + " tempest of " + mt.tempest.suffix;
-                            }));
-                            found_mt = mt;
-                            if (mt.map != "???" && (mt.tempest.prefix != "none" || mt.tempest.suffix == "none")) {
-                                found_mt = null;
-                            }
-                            Dispatcher.BeginInvoke(new Action(() =>
-                            {
-                                if (found_mt != null) {
-                                    btn_report.IsEnabled = false;
-                                } else {
-                                    btn_report.IsEnabled = true;
-                                }
-                            }));
-                        }
-                    });
-                };
-            }
 
             exe_dir = (new FileInfo(System.Reflection.Assembly.GetEntryAssembly().Location)).Directory.FullName;
 
@@ -637,6 +499,8 @@ namespace TempestNotifier
             {
                 update_column_width();
             }));
+
+            begin_watching_screenshot_folder();
         }
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)

@@ -98,7 +98,8 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="KeyboardHook.cs" />
+    <Compile Include="OCR\CropData.cs" />
+    <Compile Include="OCR\Image.cs" />
     <Compile Include="TempestAPI.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
