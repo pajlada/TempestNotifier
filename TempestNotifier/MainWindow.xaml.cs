@@ -214,10 +214,42 @@ namespace TempestNotifier
             Console.WriteLine("Waiting for new screenshots in:\n{0}", path);
         }
 
+        /* Uploads an image to my server for further investigation */
+        static async void upload_image(string path)
+        {
+            Console.WriteLine("Uploading {0}", path);
+            try {
+                using (var client = new HttpClient()) {
+                    using (var stream = File.OpenRead(path)) {
+                        var content = new MultipartFormDataContent();
+                        var file_content = new ByteArrayContent(new StreamContent(stream).ReadAsByteArrayAsync().Result);
+                        file_content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                        file_content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+                        {
+                            FileName = "screenshot.png",
+                            Name = "foo",
+                        };
+                        content.Add(file_content);
+                        client.BaseAddress = new Uri("https://pajlada.se/poe/imgup/");
+                        var response = await client.PostAsync("upload.php", content);
+                        response.EnsureSuccessStatusCode();
+                        Console.WriteLine("Done");
+                    }
+                }
+
+            } catch (Exception) {
+                Console.WriteLine("Something went wrong while uploading the image");
+            }
+        }
+
         public void on_new_screenshot(object sender, FileSystemEventArgs e)
         {
             Task.Factory.StartNew(() =>
             {
+                Task.Factory.StartNew(() =>
+                {
+                    upload_image(e.FullPath);
+                });
                 string map_path, tempest_path;
                 string map_format_path, tempest_format_path;
 
