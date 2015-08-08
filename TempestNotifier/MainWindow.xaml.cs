@@ -118,7 +118,7 @@ namespace TempestNotifier
         }
     }
 
-    public class CanUpvote : BaseConverter, IValueConverter
+    public class CanVote : BaseConverter, IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter,
                           System.Globalization.CultureInfo culture)
@@ -692,25 +692,46 @@ namespace TempestNotifier
             await update_tempests();
         }
 
-        private async void UpvoteTempestContextMenu_on_click(object sender, RoutedEventArgs e)
+        private void UpvoteTempestContextMenu_on_click(object sender, RoutedEventArgs e)
         {
             Map map = (Map)listview_maps.SelectedItem;
-            if (map != null) {
-                await vote(map.name, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
-            }
+            Map_Vote(map, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
         }
 
-        private async void Button_Click(object sender, RoutedEventArgs e)
+        private void DownvoteTempestContextMenu_on_click(object sender, RoutedEventArgs e)
+        {
+            Map map = (Map)listview_maps.SelectedItem;
+            Map_Vote(map, "none", "none");
+        }
+
+        private void Downvote_Button_Click(object sender, RoutedEventArgs e)
         {
             Map map = ((FrameworkElement)sender).DataContext as Map;
-            if (map != null) {
-                bool result = await vote(map.name, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
-                if (result) {
-                    Console.WriteLine("Successfully voted!");
-                    await update_tempests();
-                } else {
-                    Console.WriteLine("Error voting.");
-                }
+            Map_Vote(map, "none", "none");
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            Map map = ((FrameworkElement)sender).DataContext as Map;
+            Map_Vote(map, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
+        }
+
+        private async void Map_Vote(Map map, string prefix, string suffix) 
+        {
+            if (map == null)
+            {
+                return;
+            }
+
+            bool result = await vote(map.name, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
+            if (result)
+            {
+                Console.WriteLine("Successfully voted!");
+                await update_tempests();
+            }
+            else
+            {
+                Console.WriteLine("Error voting.");
             }
         }
 

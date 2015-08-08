@@ -10,7 +10,7 @@
         Title="Tempest Notifier v0.5.0-alpha" Height="450" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
     <Window.Resources>
         <tn:MapFormatConverter x:Key="MapFormatConverter" />
-        <tn:CanUpvote x:Key="CanUpvote" />
+        <tn:CanVote x:Key="CanVote" />
     </Window.Resources>
     <Grid Margin="0">
         <Button x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,38" Width="80" Click="button_Click_1" Height="23" VerticalAlignment="Bottom" FontSize="13.333"/>
@@ -55,6 +55,7 @@
             <ListView.ContextMenu>
                 <ContextMenu Name="TempestContextMenu" StaysOpen="True">
                     <MenuItem Header="Upvote" Name="UpvoteTempestContextMenu" Click="UpvoteTempestContextMenu_on_click" />
+                    <MenuItem Header="Downvote" Name="DownvoteTempestContextMenu" Click="DownvoteTempestContextMenu_on_click" />
                 </ContextMenu>
             </ListView.ContextMenu>
             <ListView.DataContext>
@@ -68,7 +69,14 @@
                     <GridViewColumn x:Name="UpvoteHeader">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="Upvote" Click="Button_Click" IsEnabled="{Binding Converter={tn:CanUpvote}}"/>
+                                <Button Content="Upvote" Click="Button_Click" IsEnabled="{Binding Converter={tn:CanVote}}"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn x:Name="DownvoteHeader">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Downvote" Click="Downvote_Button_Click" IsEnabled="{Binding Converter={tn:CanVote}}"/>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
