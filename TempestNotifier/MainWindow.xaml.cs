@@ -698,12 +698,6 @@ namespace TempestNotifier
             Map_Vote(map, map.tempest_data.prefix.ToLower(), map.tempest_data.suffix.ToLower());
         }
 
-        private void DownvoteTempestContextMenu_on_click(object sender, RoutedEventArgs e)
-        {
-            Map map = (Map)listview_maps.SelectedItem;
-            Map_Vote(map, "none", "none");
-        }
-
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             Map map = ((FrameworkElement)sender).DataContext as Map;
