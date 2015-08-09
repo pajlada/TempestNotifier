@@ -713,11 +713,15 @@ namespace TempestNotifier
         private void Downvote_Button_Click(object sender, RoutedEventArgs e)
         {
             Map map = ((FrameworkElement)sender).DataContext as Map;
-            Map_Vote(map, "none", "none");
+            listview_maps.SelectedItem = map;
+            this.maingrid.RowDefinitions[1].Height = new GridLength(26);
+            cb_prefix.SelectedItem = cb_prefix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == "none");
+            cb_suffix.SelectedItem = cb_suffix.Items.Cast<TempestAffix>().FirstOrDefault(affix => affix.name == "none");
         }
 
         private async void Map_Vote(Map map, string prefix, string suffix)
         {
+            this.maingrid.RowDefinitions[1].Height = new GridLength(0);
             if (map == null)
             {
                 return;
@@ -744,6 +748,7 @@ namespace TempestNotifier
         private void listview_maps_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             Map map = listview_maps.SelectedItem as Map;
+            this.maingrid.RowDefinitions[1].Height = new GridLength(0);
 
             if (map == null) {
                 cb_prefix.SelectedIndex = -1;
@@ -769,6 +774,7 @@ namespace TempestNotifier
         private async void btn_vote_Click(object sender, RoutedEventArgs e)
         {
             Map map = (Map)listview_maps.SelectedItem;
+            this.maingrid.RowDefinitions[1].Height = new GridLength(0);
 
             if (map != null) {
                 TempestAffix prefix = (TempestAffix)cb_prefix.SelectedItem;
