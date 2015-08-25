@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -9,9 +8,7 @@ using System.Windows.Data;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Newtonsoft.Json;
-using System.Timers;
 using System.Diagnostics;
-using System.Collections;
 using System.ComponentModel;
 using System.Globalization;
 using System.Threading;
@@ -19,73 +16,11 @@ using System.Windows.Markup;
 using Tesseract;
 using System.Runtime.InteropServices;
 using System.Drawing;
-using ImageMagick;
 using System.IO;
 using FuzzyString;
 
 namespace TempestNotifier
 {
-    class TempestAffix
-    {
-        public string name;
-        public string description;
-
-        public override string ToString()
-        {
-            CultureInfo culture_info = Thread.CurrentThread.CurrentCulture;
-            TextInfo text_info = culture_info.TextInfo;
-            return text_info.ToTitleCase(name) + " (" + description + ")";
-        }
-    }
-
-    class TempestAffixes
-    {
-        [JsonProperty(PropertyName = "bases")]
-        public Dictionary<string, string> prefixes { get; set; }
-
-        public Dictionary<string, string> suffixes { get; set; }
-    }
-
-    public class Tempest
-    {
-        public string name { get; set; }
-
-        [JsonProperty(PropertyName = "base")]
-        public string prefix { get; set; }
-
-        public string suffix { get; set; }
-
-        public int votes { get; set; }
-    }
-
-    class Map
-    {
-        public string name { get; set; }
-
-        public int level { get; set; }
-
-        public string tempest_description { get; set; }
-
-        public Tempest tempest_data { get; set; }
-
-        public int state { get; set; }
-
-        public int votes { get; set; }
-    }
-
-    class TempestDescription
-    {
-        public string short_description { get; set; }
-
-        public bool good { get; set; }
-    }
-
-    public class MapTempest
-    {
-        public string map { get; set; }
-
-        public Tempest tempest { get; set; }
-    }
 
     public abstract class BaseConverter : MarkupExtension
     {
@@ -154,30 +89,9 @@ namespace TempestNotifier
         System.Timers.Timer timer;
         Dictionary<String, TempestDescription> relevant_tempests;
         Dictionary<string, int> map_levels;
-        TempestAffixes tempest_affixes;
-        TesseractEngine tesseract;
-        string exe_dir;
+        static string exe_dir;
         MapTempest found_mt = null;
-
-        public string get_text(string image_path)
-        {
-            try {
-                using (var img = Pix.LoadFromFile(image_path)) {
-                    using (var page = tesseract.Process(img)) {
-                        var text = page.GetText();
-                        return text;
-                    }
-                }
-            } catch (Exception e) {
-                Trace.TraceError(e.ToString());
-                Console.WriteLine("Unexpected Error: " + e.Message);
-                Console.WriteLine("Details: ");
-                Console.WriteLine(e.ToString());
-            }
-
-            return "";
-        }
-
+        static TempestShared.ErrorLog logger = new TempestShared.ErrorLog();
         public void update_label(Label lbl, string format, params object[] values)
         {
             lbl.Content = String.Format(format, values);
@@ -250,8 +164,6 @@ namespace TempestNotifier
                 {
                     upload_image(e.FullPath);
                 });
-                string map_path, tempest_path;
-                string map_format_path, tempest_format_path;
 
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -260,44 +172,8 @@ namespace TempestNotifier
                     found_mt = null;
                 }));
 
-                Bitmap img = new Bitmap(e.FullPath);
-                var img_width = img.Width;
-                var img_height = img.Height;
+                MapTempest mt = OCR.Image.read_map_tempest(e.FullPath, listview_maps.Items.Cast<Map>().ToList());
 
-                var crop_data = new OCR.CropData
-                {
-                    map_from = new Tuple<int, int>((int)(img_width * 0.85), 0),
-                    map_to = new Tuple<int, int>(img_width, (int)(img_height * 0.15)),
-                    tempest_from = new Tuple<int, int>((int)(img_width * 0.85), (int)(img_height * 0.10)),
-                    tempest_to = new Tuple<int, int>(img_width, (int)(img_height * 0.45)),
-                };
-
-                foreach (var cd in OCR.CropData.resolutions) {
-                    if (img_width == cd.Key.Item1 && img_height == cd.Key.Item2) {
-                        crop_data = cd.Value;
-                        break;
-                    }
-                }
-
-                try {
-                    map_path = Path.Combine(exe_dir, "map.png");
-                    tempest_path = Path.Combine(exe_dir, "tempest.png");
-                    map_format_path = Path.Combine(exe_dir, "map-{0}.png");
-                    tempest_format_path = Path.Combine(exe_dir, "tempest-{0}.png");
-                } catch (Exception ex) {
-                    Console.WriteLine("Something went wrong while combining paths. {0}", ex.Message);
-                    return;
-                }
-
-                update_label_d(lbl_report, "Cropping images");
-                OCR.Image.crop(e.FullPath, map_path, crop_data.map_from, crop_data.map_to);
-                OCR.Image.crop(e.FullPath, tempest_path, crop_data.tempest_from, crop_data.tempest_to);
-
-                update_label_d(lbl_report, "Applying filters to images");
-                var map_images = OCR.Image.apply_filters(map_path, map_format_path);
-                var tempest_images = OCR.Image.apply_filters(tempest_path, tempest_format_path);
-
-                MapTempest mt = get_map_tempest(map_images, tempest_images);
                 Console.WriteLine(String.Format("Map name: {0}", mt.map));
                 Console.WriteLine(String.Format("Tempest name: {0}", mt.tempest.name));
                 bool do_vote = false;
@@ -333,141 +209,18 @@ namespace TempestNotifier
             });
         }
 
-        public MapTempest get_map_tempest(List<KeyValuePair<string, string>> map_images, List<KeyValuePair<string, string>> tempest_images)
-        {
-            var mt = new MapTempest
-            {
-                map = "???",
-                tempest = new Tempest
-                {
-                    name = "???",
-                    prefix = "none",
-                    suffix = "none",
-                    votes = 0
-                }
-            };
-
-            foreach (KeyValuePair<string, string> kv in map_images) {
-                if (mt.map != "???") {
-                    /* Stop searching if we've already found a map match */
-                    break;
-                }
-
-                update_label_d(lbl_report, "Reading {0} Map image", kv.Key);
-                string text = get_text(kv.Value).ToLower().Trim();
-                Console.WriteLine(String.Format("{0}: '{1}'", kv.Key, text));
-                update_label_d(lbl_report, "Read {0} Map image ({1})", kv.Key, text);
-                foreach (Map map in listview_maps.Items) {
-                    string mapname = map.name.Replace('_', ' ');
-                    update_label_d(lbl_report, "Comparing {0} to {1}", text, mapname);
-                    if (text.Contains(mapname)) {
-                        update_label_d(lbl_report, "Setting map to {0}", mapname);
-                        mt.map = map.name;
-                        break;
-                    }
-                }
-            }
-
-            List<FuzzyStringComparisonOptions> fuzzystringoptions = new List<FuzzyStringComparisonOptions>
-            {
-                FuzzyStringComparisonOptions.UseLevenshteinDistance,
-            };
-
-            FuzzyStringComparisonTolerance tolerance = FuzzyStringComparisonTolerance.Strong;
-
-            List<string> tempest_texts = new List<string>();
-
-            foreach (KeyValuePair<string, string> kv in tempest_images) {
-                if (mt.tempest.suffix != "none" && mt.tempest.prefix != "none") {
-                    /* Stop searching if we've already found a two tempests */
-                    break;
-                }
-
-                update_label_d(lbl_report, "Reading {0} Tempest image", kv.Key);
-                string text_raw = get_text(kv.Value).ToLower().Trim();
-                tempest_texts.Add(text_raw);
-                string text = text_raw.Replace(" ", "");
-
-                update_label_d(lbl_report, "Read {0} Tempest image ({1})", kv.Key, text_raw);
-                foreach (KeyValuePair<string, string> tempest_kv in tempest_affixes.prefixes) {
-                    if (mt.tempest.prefix != "none") {
-                        break;
-                    }
-                    string affix = tempest_kv.Key.ToLower().Replace('_', ' ');
-                    update_label_d(lbl_report, "Comparing {0} '{1}' with prefix {2}", kv.Key, text, affix);
-                    if (text.Contains(affix)) {
-                        update_label_d(lbl_report, "Setting prefix to {0}", affix);
-                        mt.tempest.prefix = tempest_kv.Key;
-                        break;
-                    }
-                }
-
-                foreach (KeyValuePair<string, string> tempest_kv in tempest_affixes.suffixes) {
-                    string affix = tempest_kv.Key.ToLower().Replace('_', ' ');
-                    update_label_d(lbl_report, "Comparing {0} '{1}' with suffix {2}", kv.Key, text, affix);
-                    if (text.Contains(affix)) {
-                        update_label_d(lbl_report, "Setting suffix to {0}", affix);
-                        mt.tempest.suffix = tempest_kv.Key;
-                        break;
-                    }
-                }
-            }
-
-            foreach (string text_raw in tempest_texts) {
-                if (mt.tempest.suffix != "none" && mt.tempest.prefix != "none") {
-                    /* Stop searching if we've already found a two tempests */
-                    break;
-                }
-
-                foreach (KeyValuePair<string, string> tempest_kv in tempest_affixes.prefixes) {
-                    if (mt.tempest.prefix != "none") {
-                        break;
-                    }
-                    string affix = tempest_kv.Key.ToLower().Replace('_', ' ');
-
-                    foreach (string str in text_raw.Split(' ')) {
-                        update_label_d(lbl_report, "Fuzzy comparing {0} with {1}", affix, str);
-                        if (str.ApproximatelyEquals(affix, fuzzystringoptions, tolerance)) {
-                            update_label_d(lbl_report, "Setting prefix to {0}", affix);
-                            Console.WriteLine(String.Format("'{0}' matched '{1}'", str, affix));
-                            mt.tempest.prefix = tempest_kv.Key;
-                            break;
-                        }
-                    }
-                }
-
-                foreach (KeyValuePair<string, string> tempest_kv in tempest_affixes.suffixes) {
-                    string affix = tempest_kv.Key.ToLower().Replace('_', ' ');
-
-                    foreach (string str in text_raw.Split(' ')) {
-                        update_label_d(lbl_report, "Fuzzy comparing {0} with {1}", affix, str);
-                        if (str.ApproximatelyEquals(affix, fuzzystringoptions, tolerance)) {
-                            update_label_d(lbl_report, "Setting prefix to {0}", affix);
-                            Console.WriteLine(String.Format("'{0}' matched '{1}'", str, affix));
-                            mt.tempest.prefix = tempest_kv.Key;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            mt.tempest.name = mt.tempest.prefix + " Tempest Of " + mt.tempest.suffix;
-
-            update_label_d(lbl_report, "Done looping!");
-
-            return mt;
-        }
-
         public MainWindow()
         {
+            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
+            //Application.Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
             InitializeComponent();
 
             map_levels = new Dictionary<string, int>();
             relevant_tempests = new Dictionary<string, TempestDescription>
             {
                 { "abyssal", new TempestDescription { short_description = "Chaos damage", good = false } },
-                { "shining", new TempestDescription { short_description = "Increased item Rarity/Quantity", good = true } },
-                { "radiating", new TempestDescription { short_description = "Increased item Rarity/Quantity", good = true } },
+                { "shining", new TempestDescription { short_description = "Increased item Rarity/Quantity (120/30)", good = true } },
+                { "radiating", new TempestDescription { short_description = "Increased item Rarity/Quantity (420/70)", good = true } },
                 { "stinging", new TempestDescription { short_description = "All hits are Critical Strikes", good = false } },
                 { "scathing", new TempestDescription { short_description = "All hits are Critical Strikes", good = false } },
                 { "corrupting", new TempestDescription { short_description = "Corrupted drops", good = true } },
@@ -481,6 +234,9 @@ namespace TempestNotifier
                 { "inspiration", new TempestDescription { short_description = "15% increased experience", good = true } },
                 { "fortune", new TempestDescription { short_description = "1 guaranteed unique item", good = true } },
                 { "fate", new TempestDescription { short_description = "1 guaranteed vaal fragment", good = true } },
+                { "incursion", new TempestDescription { short_description = "Adds 10 Invasion Bosses", good = false } },
+                { "aberrance", new TempestDescription { short_description = "Nemesis/Bloodline mods", good = true } },
+                { "revealing", new TempestDescription { short_description = "Drops are identified", good = true } },
             };
 
             timer = new System.Timers.Timer(Convert.ToInt32(TimeSpan.FromMinutes(2).TotalMilliseconds));
@@ -496,21 +252,70 @@ namespace TempestNotifier
 
             exe_dir = (new FileInfo(System.Reflection.Assembly.GetEntryAssembly().Location)).Directory.FullName;
 
-#if DEBUG
-            string tessdata_dir = exe_dir + "/../Release/tessdata/";
-#else
-            string tessdata_dir = exe_dir + "/tessdata/";
-#endif
+            OCR.TesseractWrapper.init();
+        }
 
+        private void Current_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
             try {
-                tesseract = new TesseractEngine(tessdata_dir, "eng", EngineMode.TesseractAndCube);
-            } catch (Exception e) {
-                Trace.TraceError(e.ToString());
-                Console.WriteLine("Unexpected Error: " + e.Message);
-                Console.WriteLine("Details: ");
-                Console.WriteLine(e.ToString());
+                Exception ex = e.Exception;
+                string LogFile = logger.LogError(ex);
+
+                Process proc = new Process();
+                proc.EnableRaisingEvents = false;
+                proc.StartInfo.FileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ErrorReport.exe");
+                proc.StartInfo.Arguments = LogFile;
+                proc.Start();
+            } finally {
+                Application.Current.Shutdown();
             }
         }
+
+        static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            try {
+                Exception ex = (Exception)e.ExceptionObject;
+                string LogFile = logger.LogError(ex);
+
+                Process proc = new Process();
+                proc.EnableRaisingEvents = false;
+                proc.StartInfo.FileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ErrorReport.exe");
+                proc.StartInfo.Arguments = LogFile;
+                proc.Start();
+            } finally {
+                Application.Current.Shutdown();
+            }
+        }
+
+        /*
+        public static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+        {
+            DialogResult result = DialogResult.Abort;
+            try {
+                string LogFile = Logger.LogError(e.Exception);
+
+                result = MessageBox.Show(
+                    "The application encountered a error. This error has been logged and should be reported using the Error Report utility.\n\n" +
+                        "Error:\n" +
+                        e.Exception.Message +
+                        "\n\nStack Trace:\n" +
+                        e.Exception.StackTrace,
+                    "Application Error",
+                    MessageBoxButtons.AbortRetryIgnore,
+                    MessageBoxIcon.Stop);
+
+                Process proc = new Process();
+                proc.EnableRaisingEvents = false;
+                proc.StartInfo.FileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ErrorReport.exe");
+                proc.StartInfo.Arguments = LogFile;
+                proc.Start();
+            } finally {
+                if (result == DialogResult.Abort) {
+                    Application.Exit();
+                }
+            }
+        }
+        */
 
         private async void initialize_data()
         {
@@ -547,7 +352,7 @@ namespace TempestNotifier
 
         public async Task update_tempest_affixes()
         {
-            this.tempest_affixes = JsonConvert.DeserializeObject<TempestAffixes>(await TempestAPI.get_raw("tempests"));
+            TempestAffixData.init().Wait();
 
             await Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -555,7 +360,7 @@ namespace TempestNotifier
                 this.cb_prefix.Items.Clear();
                 this.cb_suffix.Items.Clear();
 
-                foreach (KeyValuePair<string, string> affix in this.tempest_affixes.prefixes) {
+                foreach (KeyValuePair<string, string> affix in TempestAffixData.prefixes) {
                     string description = affix.Value;
                     TempestDescription td;
                     relevant_tempests.TryGetValue(affix.Key, out td);
@@ -565,7 +370,7 @@ namespace TempestNotifier
                     this.cb_prefix.Items.Add(new TempestAffix { name = affix.Key, description = description });
                 }
 
-                foreach (KeyValuePair<string, string> affix in this.tempest_affixes.suffixes) {
+                foreach (KeyValuePair<string, string> affix in TempestAffixData.suffixes) {
                     string description = affix.Value;
                     TempestDescription td;
                     relevant_tempests.TryGetValue(affix.Key, out td);

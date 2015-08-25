@@ -4,10 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TempestNotifier"
-        x:Class="TempestNotifier.MainWindow"
         xmlns:tn="clr-namespace:TempestNotifier"
+        xmlns:local1="clr-namespace:TempestNotifier;assembly=TempestShared"
+        x:Class="TempestNotifier.MainWindow"
         mc:Ignorable="d"
-        Title="Tempest Notifier v0.5.0-alpha" Height="450" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
+        Title="Tempest Notifier v0.6.0" Height="450" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
     <Window.Resources>
         <tn:MapFormatConverter x:Key="MapFormatConverter" />
         <tn:CanVote x:Key="CanVote" />
@@ -33,7 +34,7 @@
                         <MultiDataTrigger>
                             <MultiDataTrigger.Conditions>
                                 <Condition Binding="{Binding state}" Value="-1" />
-                                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type DataGridRow}}}" Value="True" />
+                                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type DataGridRow}, Mode=FindAncestor}}" Value="True" />
                             </MultiDataTrigger.Conditions>
                             <Setter Property="Background" Value="#66FF00FF" />
                         </MultiDataTrigger>
@@ -59,13 +60,13 @@
                 </Style>
             </ListView.Resources>
             <ListView.ContextMenu>
-                <ContextMenu Name="TempestContextMenu" StaysOpen="True">
-                    <MenuItem Header="Upvote" Name="UpvoteTempestContextMenu" Click="UpvoteTempestContextMenu_on_click" />
-                    <MenuItem Header="Downvote" Name="DownvoteTempestContextMenu" />
+                <ContextMenu x:Name="TempestContextMenu" StaysOpen="True">
+                    <MenuItem Header="Upvote" x:Name="UpvoteTempestContextMenu" Click="UpvoteTempestContextMenu_on_click" />
+                    <MenuItem Header="Downvote" x:Name="DownvoteTempestContextMenu" />
                 </ContextMenu>
             </ListView.ContextMenu>
             <ListView.DataContext>
-                <local:Map/>
+                <local1:Map/>
             </ListView.DataContext>
             <ListView.View>
                 <GridView x:Name="gridview_maps">
@@ -96,7 +97,7 @@
         <ComboBox Grid.Row="3" x:Name="cb_suffix" Margin="63,0,10,0" IsEditable="True" Height="21" VerticalAlignment="Center" IsEnabled="False"/>
         <Button Grid.Row="4" x:Name="btn_hard_refresh" Content="Refresh" HorizontalAlignment="Left" Margin="10,0,0,0" Width="80" Click="button_Click_1" Height="23" VerticalAlignment="Center" FontSize="13.333"/>
         <Button Grid.Row="4" x:Name="btn_vote" Content="Vote" HorizontalAlignment="Left" Margin="95,0,0,0" VerticalAlignment="Center" Width="80" FontSize="13.333" Click="btn_vote_Click" IsEnabled="False" Height="23"/>
-        <Button Grid.Row="5" x:Name="btn_report" Content="Report >" HorizontalAlignment="Left" Margin="10,0,0,0" Width="80" Height="23" VerticalAlignment="Center" FontSize="13.333" RenderTransformOrigin="-0.275,-3.13" Click="btn_report_Click" IsEnabled="False"/>
+        <Button Grid.Row="5" x:Name="btn_report" Content="Report &gt;" HorizontalAlignment="Left" Margin="10,0,0,0" Width="80" Height="23" VerticalAlignment="Center" FontSize="13.333" RenderTransformOrigin="-0.275,-3.13" Click="btn_report_Click" IsEnabled="False"/>
         <Label Grid.Row="5" x:Name="lbl_report" Margin="95,0,10,0" FontSize="12" VerticalAlignment="Center" Height="27" Content=""/>
         <Label Grid.Row="4" x:Name="lbl_last_update" Margin="180,0,10,0" FontSize="16" VerticalAlignment="Center" Height="37"/>
     </Grid>
