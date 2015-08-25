@@ -119,13 +119,17 @@ namespace TempestNotifier
                 return;
             }
 
-            FileSystemWatcher watcher = new FileSystemWatcher();
-            watcher.Path = path;
-            watcher.NotifyFilter = NotifyFilters.LastWrite;
-            watcher.Filter = "*.*";
-            watcher.Changed += new FileSystemEventHandler(on_new_screenshot);
-            watcher.EnableRaisingEvents = true;
-            Console.WriteLine("Waiting for new screenshots in:\n{0}", path);
+            try {
+                FileSystemWatcher watcher = new FileSystemWatcher();
+                watcher.Path = path;
+                watcher.NotifyFilter = NotifyFilters.LastWrite;
+                watcher.Filter = "*.*";
+                watcher.Changed += new FileSystemEventHandler(on_new_screenshot);
+                watcher.EnableRaisingEvents = true;
+                Console.WriteLine("Waiting for new screenshots in:\n{0}", path);
+            } catch (Exception e) {
+                Console.WriteLine("No screenshot folder found.");
+            }
         }
 
         /* Uploads an image to my server for further investigation */

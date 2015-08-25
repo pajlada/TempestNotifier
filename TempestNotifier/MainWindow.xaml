@@ -8,7 +8,7 @@
         xmlns:local1="clr-namespace:TempestNotifier;assembly=TempestShared"
         x:Class="TempestNotifier.MainWindow"
         mc:Ignorable="d"
-        Title="Tempest Notifier v0.6.0" Height="450" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
+        Title="Tempest Notifier v0.6.1" Height="450" Width="638" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Loaded="Window_Loaded">
     <Window.Resources>
         <tn:MapFormatConverter x:Key="MapFormatConverter" />
         <tn:CanVote x:Key="CanVote" />
